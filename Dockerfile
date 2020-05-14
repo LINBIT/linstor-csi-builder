@@ -26,7 +26,7 @@ COPY --from=cent8 /etc/yum.repos.d/CentOS-Base.repo /etc/yum.repos.d/
 RUN yum install -y --disablerepo="*" --enablerepo=BaseOS e2fsprogs xfsprogs && \
 	rm -f /etc/yum.repos.d/CentOS-Base.repo && yum clean all -y
 
-ENV CSI_VERSION 0.8.0
+ENV CSI_VERSION 0.8.1
 
 ARG release=1
 LABEL name="LINSTOR CSI driver" \
