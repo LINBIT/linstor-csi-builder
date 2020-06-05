@@ -6,12 +6,13 @@ ENV PDIR "${BDIR}/${NAME}"
 ENV UPSTREAM "https://github.com/piraeusdatastore/${NAME}"
 
 ARG VERSION=latest
+ARG ARCH=amd64
 
 RUN mkdir -p "$BDIR" && cd "$BDIR" && \
     git clone "$UPSTREAM" && cd "$NAME" && \
     if [ "$VERSION" = 'latest' ]; then VERSION=HEAD; fi && \
     git checkout "$VERSION" && \
-    make -f container.mk staticrelease && mv ./linstor-csi-linux-amd64 /
+    make -f container.mk staticrelease ARCH=${ARCH} && mv ./linstor-csi-linux-${ARCH} /
 
 FROM centos:centos8 as cent8
 # nothing, just get it for the repos (i.e. FS-progs)
@@ -20,6 +21,8 @@ FROM registry.access.redhat.com/ubi8/ubi
 MAINTAINER Roland Kammerer <roland.kammerer@linbit.com>
 RUN yum -y update-minimal --security --sec-severity=Important --sec-severity=Critical && \
 	yum clean all -y
+
+ARG ARCH=amd64
 
 COPY --from=cent8 /etc/pki/rpm-gpg/RPM-GPG-KEY-centosofficial /etc/pki/rpm-gpg/
 COPY --from=cent8 /etc/yum.repos.d/CentOS-Base.repo /etc/yum.repos.d/
@@ -37,5 +40,5 @@ LABEL name="LINSTOR CSI driver" \
       description="LINSTOR's CSI driver component"
 COPY LICENSE /licenses/gpl-2.0.txt
 
-COPY --from=builder /linstor-csi-linux-amd64 /linstor-csi
+COPY --from=builder /linstor-csi-linux-${ARCH} /linstor-csi
 ENTRYPOINT ["/linstor-csi"]
