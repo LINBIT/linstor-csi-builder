@@ -1,8 +1,11 @@
 PROJECT ?= linstor-csi
-REGISTRY ?= drbd.io
+REGISTRY := drbd.io
+ARCH ?= amd64
+ifneq ($(strip $(ARCH)),)
+REGISTRY := $(REGISTRY)/$(ARCH)
+endif
 TAG ?= latest
 NOCACHE ?= false
-ARCH ?= amd64
 
 help:
 	@echo "Useful targets: 'update', 'upload'"
@@ -17,9 +20,7 @@ update: Dockerfile
 
 .PHONY: upload
 upload:
-	for r in $(REGISTRY); do \
-		docker tag $(PROJECT):$(TAG) $$r/$(PROJECT):$(TAG) ; \
-		docker tag $(PROJECT):$(TAG) $$r/$(PROJECT):latest ; \
-		docker push $$r/$(PROJECT):$(TAG) ; \
-		docker push $$r/$(PROJECT):latest ; \
-	done
+	docker tag $(PROJECT):$(TAG) $(REGISTRY)/$(PROJECT):$(TAG)
+	docker tag $(PROJECT):$(TAG) $(REGISTRY)/$(PROJECT):latest
+	docker push $(REGISTRY)/$(PROJECT):$(TAG)
+	docker push $(REGISTRY)/$(PROJECT):latest
