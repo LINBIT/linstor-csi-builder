@@ -1,0 +1,10 @@
+build:
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'master'
+  tags:
+    - shell
+  script:
+    - docker login -u $LINBIT_REGISTRY_USER -p $LINBIT_REGISTRY_PASSWORD $LINBIT_REGISTRY
+    - TAG="$(awk '/^ENV CSI_VERSION.*$/ {print "v" $3}' Dockerfile)"
+    - make update TAG="${TAG}"
+    - make upload TAG="${TAG}"
