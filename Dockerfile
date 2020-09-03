@@ -14,20 +14,26 @@ RUN mkdir -p "$BDIR" && cd "$BDIR" && \
     git checkout "$VERSION" && \
     make -f container.mk staticrelease ARCH=${ARCH} && mv ./linstor-csi-linux-${ARCH} /
 
-FROM centos:centos8 as cent8
-# nothing, just get it for the repos (i.e. FS-progs)
+FROM centos:centos7 as cent7
+ARG ARCH=amd64
+RUN case $ARCH in \
+	amd64) cp /etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7 /etc/pki/rpm-gpg/tools-key ;;\
+	s390x) cp /etc/pki/rpm-gpg/RPM-GPG-KEY-ClefOS-7 /etc/pki/rpm-gpg/tools-key ;;\
+	*) echo "unsupported ARCH: $ARCH"; exit 1 ;;\
+	esac
 
-FROM registry.access.redhat.com/ubi8/ubi
+FROM registry.access.redhat.com/ubi7/ubi
+ARG ARCH=amd64
 MAINTAINER Roland Kammerer <roland.kammerer@linbit.com>
 RUN yum -y update-minimal --security --sec-severity=Important --sec-severity=Critical && \
 	yum clean all -y
 
-ARG ARCH=amd64
 
-COPY --from=cent8 /etc/pki/rpm-gpg/RPM-GPG-KEY-centosofficial /etc/pki/rpm-gpg/
-COPY --from=cent8 /etc/yum.repos.d/CentOS-Base.repo /etc/yum.repos.d/
-RUN yum install -y --disablerepo="*" --enablerepo=BaseOS e2fsprogs xfsprogs && \
-	rm -f /etc/yum.repos.d/CentOS-Base.repo && yum clean all -y
+# repo for additional tools not in UBI (cryptsetup,...)
+COPY --from=cent7 /etc/pki/rpm-gpg/tools-key /etc/pki/rpm-gpg/
+COPY centos_clefos_tools.sh /tmp/
+RUN /tmp/centos_clefos_tools.sh "$ARCH"
+RUN yum install -y e2fsprogs xfsprogs && yum clean all -y
 
 ENV CSI_VERSION 0.9.1
 
