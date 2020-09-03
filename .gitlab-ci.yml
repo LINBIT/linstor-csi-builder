@@ -1,10 +1,28 @@
-build:
+.build:
   rules:
     - if: $CI_COMMIT_BRANCH == 'master'
+    - if: $CI_MERGE_REQUEST_ID
   tags:
     - shell
   script:
     - docker login -u $LINBIT_REGISTRY_USER -p $LINBIT_REGISTRY_PASSWORD $LINBIT_REGISTRY
     - TAG="$(awk '/^ENV CSI_VERSION.*$/ {print "v" $3; exit}' Dockerfile)"
-    - make update TAG="${TAG}"
-    - make upload TAG="${TAG}"
+    - make update TAG="${TAG}" ARCH="${ARCH}"
+    - |
+      if [ -z "${CI_MERGE_REQUEST_ID}" ]; then
+          make upload TAG="${TAG}" ARCH="${ARCH}"
+      fi
+
+build-amd64:
+  extends: .build
+  variables:
+    ARCH: amd64
+  tags:
+    - shell
+
+build-s390x:
+  extends: .build
+  variables:
+    ARCH: s390x
+  tags:
+    - s390x
