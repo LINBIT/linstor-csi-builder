@@ -1,17 +1,44 @@
-.build:
+stages:
+  - prepare
+  - build
+  - test
+  - publish
+
+prepare:
+  image: nexus.at.linbit.com:5000/build-helpers:latest
+  stage: prepare
   rules:
-    - if: $CI_COMMIT_BRANCH == 'master'
     - if: $CI_MERGE_REQUEST_ID
+    - if: $CI_COMMIT_BRANCH == 'master'
+    - if: $CI_COMMIT_TAG
+  variables:
+    # git describe needs full history access
+    GIT_DEPTH: 0
+    # git describe does not need the submodule
+    GIT_SUBMODULE_STRATEGY: none
+  script:
+    - SEMVER="$(semver-from-git.py)"
+    - echo "SEMVER=${SEMVER}" >> .ci-build.env
+    - echo "TAG=v${SEMVER/+/-}" >> .ci-build.env
+  artifacts:
+    reports:
+      dotenv: .ci-build.env
+
+.build:
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+    GIT_DEPTH: 1
+  rules:
+    - if: $CI_MERGE_REQUEST_ID
+    - if: $CI_COMMIT_BRANCH == 'master'
+    - if: $CI_COMMIT_TAG
   tags:
     - shell
   script:
-    - docker login -u $LINBIT_REGISTRY_USER -p $LINBIT_REGISTRY_PASSWORD $LINBIT_REGISTRY
-    - TAG="$(awk '/^ENV CSI_VERSION.*$/ {print "v" $3; exit}' Dockerfile)"
-    - make update TAG="${TAG}" ARCH="${ARCH}"
-    - |
-      if [ -z "${CI_MERGE_REQUEST_ID}" ]; then
-          make upload TAG="${TAG}" ARCH="${ARCH}"
-      fi
+    # Use NOCACHE=true for release builds
+    - if [ -n "${CI_COMMIT_TAG}" ]; then NOCACHE=true ; else NOCACHE=false ; fi
+    - docker login -u ${LINBIT_REGISTRY_USER} -p ${LINBIT_REGISTRY_PASSWORD} ${LINBIT_DOCKER_REGISTRY}
+    - make update upload REGISTRY=${LINBIT_DOCKER_REGISTRY} TAG="${TAG}-${ARCH}" ARCH="${ARCH}" NOCACHE="${NOCACHE}"
 
 build-amd64:
   extends: .build
@@ -26,3 +53,19 @@ build-s390x:
     ARCH: s390x
   tags:
     - s390x
+
+# TODO: Test
+
+publish:
+  stage: publish
+  rules:
+    - if: $CI_COMMIT_TAG
+  image:
+    name: gcr.io/go-containerregistry/crane:debug
+    entrypoint: [""]
+  script:
+    - crane auth login -u $PUBLISH_REGISTRY_USER -p $PUBLISH_REGISTRY_PASSWORD $PUBLISH_REGISTRY
+    - crane copy ${LINBIT_DOCKER_REGISTRY}/linstor-csi:${TAG}-amd64 ${PUBLISH_REGISTRY}/amd64/linstor-csi:${TAG}
+    - crane copy ${LINBIT_DOCKER_REGISTRY}/linstor-csi:${TAG}-s390x ${PUBLISH_REGISTRY}/s390x/linstor-csi:${TAG}
+    - crane tag ${PUBLISH_REGISTRY}/amd64/linstor-csi:${TAG} latest
+    - crane tag ${PUBLISH_REGISTRY}/s390x/linstor-csi:${TAG} latest

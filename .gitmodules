@@ -1,0 +1,3 @@
+[submodule "linstor-csi"]
+	path = linstor-csi
+	url = https://github.com/piraeusdatastore/linstor-csi.git
