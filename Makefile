@@ -21,3 +21,6 @@ update: Dockerfile
 upload:
 	docker tag $(PROJECT):$(TAG) $(REGISTRY)/$(PROJECT):$(TAG)
 	docker push $(REGISTRY)/$(PROJECT):$(TAG)
+
+prepare-release:
+	sed -i "s/ARG SEMVER=.*/ARG SEMVER=$(SEMVER)/" Dockerfile
