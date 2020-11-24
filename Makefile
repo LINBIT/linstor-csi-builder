@@ -24,3 +24,7 @@ upload:
 
 prepare-release:
 	sed -i "s/ARG SEMVER=.*/ARG SEMVER=$(SEMVER)/" Dockerfile
+
+.PHONY: test/bin
+test/bin:
+	cd $(PROJECT) ; CGO_ENABLED=0 go test -v -a -ldflags '-extldflags "-static"' -o $(abspath $@)/sanity -c ./pkg/driver

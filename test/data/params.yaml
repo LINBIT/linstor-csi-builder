@@ -1,0 +1,5 @@
+# Basically the parameters section from a StorageClass
+autoPlace: "1"
+storagePool: sanity-test
+resourceGroup: sanity-test
+

@@ -4,6 +4,11 @@ stages:
   - test
   - publish
 
+variables:
+  VIRTER_VERSION: v0.7.1
+  VMSHED_VERSION: v0.8.1
+  BUILD_HELPERS_VERSION: c25556713c0c6f10d153c9e8a4d45702ea916aff
+
 prepare:
   image: nexus.at.linbit.com:5000/build-helpers:latest
   stage: prepare
@@ -25,6 +30,7 @@ prepare:
       dotenv: .ci-build.env
 
 .build:
+  stage: build
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
     GIT_DEPTH: 1
@@ -48,21 +54,69 @@ build-amd64:
     - shell
 
 build-s390x:
+  rules:
+    - if: $CI_MERGE_REQUEST_ID
+      when: manual
+      allow_failure: true
+    - if: $CI_COMMIT_TAG
   extends: .build
   variables:
     ARCH: s390x
   tags:
     - s390x
 
-# TODO: Test
+build-tests:
+  stage: build
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+  rules:
+    - if: $CI_MERGE_REQUEST_ID
+    - if: $CI_COMMIT_BRANCH == 'master'
+    - if: $CI_COMMIT_TAG
+  image: golang:1
+  script:
+    - make test/bin
+  artifacts:
+    paths:
+      - test/bin
+
+test:
+  tags:
+    - libvirt
+  rules:
+    - if: $CI_MERGE_REQUEST_ID
+    - if: $CI_COMMIT_BRANCH == 'master'
+    - if: $CI_COMMIT_TAG
+  cache:
+    paths:
+      - download
+  script:
+    - |
+      curl -sSfL -u gitlab-ci-token:$CI_JOB_TOKEN https://gitlab.at.linbit.com/linbit/build-helpers/-/archive/$BUILD_HELPERS_VERSION/ignored.tar.gz | tar -xvzf -
+      mv build-helpers-* build-helpers
+      . build-helpers/gitlab-utils.sh
+    - |
+      ci_prepare_tools
+      ci_fetch_rq
+      ci_fetch_binary virter virter-$VIRTER_VERSION https://github.com/LINBIT/virter/releases/download/$VIRTER_VERSION/virter-linux-amd64
+      ci_fetch_binary vmshed vmshed-$VMSHED_VERSION https://github.com/LINBIT/vmshed/releases/download/$VMSHED_VERSION/vmshed-linux-amd64
+    - virter image pull linstor-csi-sanity-test-vm -u ${SANITY_TEST_VM_IMAGE} >/dev/null 2>&1 || echo "image already exists"
+    - vmshed --vms vms.toml --tests tests.toml
+  artifacts:
+    reports:
+      junit:
+        - tests-out/**/*.xml
 
 publish:
   stage: publish
   rules:
+    - if: $CI_COMMIT_BRANCH == 'master'
+      when: manual
+      allow_failure: true
     - if: $CI_COMMIT_TAG
   image:
     name: gcr.io/go-containerregistry/crane:debug
-    entrypoint: [""]
+    entrypoint: [ "" ]
   script:
     - crane auth login -u $PUBLISH_REGISTRY_USER -p $PUBLISH_REGISTRY_PASSWORD $PUBLISH_REGISTRY
     - crane copy ${LINBIT_DOCKER_REGISTRY}/linstor-csi:${TAG}-amd64 ${PUBLISH_REGISTRY}/amd64/linstor-csi:${TAG}
