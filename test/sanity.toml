@@ -15,6 +15,13 @@ dest = "/opt/testdata"
 script = """
 set -e
 
+while ! linstor controller version >/dev/null 2>&1 ; do
+    echo Waiting for LINSTOR Controller to come online...
+    sleep 5
+done
+
+linstor node create --node-type satellite "$(hostname -f)" "$(hostname -I)"
+
 while ! linstor -m --output-version v1 node list -n "$(hostname -f)" | grep "ONLINE" >/dev/null 2>&1 ; do
     echo Waiting for LINSTOR Controller...
     sleep 5
