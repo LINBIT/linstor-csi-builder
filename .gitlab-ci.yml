@@ -80,7 +80,8 @@ build-tests:
     paths:
       - test/bin
 
-test:
+sanity-test:
+  stage: test
   tags:
     - libvirt
   rules:
