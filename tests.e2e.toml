@@ -1,0 +1,11 @@
+test_suite_file = "test/e2e.toml"
+test_timeout = "5h"
+artifacts = [
+    "/e2e-report.xml",
+    "/e2e-report.json",
+    "/logs/*",
+]
+
+[tests]
+[tests.e2e]
+vms = [4]

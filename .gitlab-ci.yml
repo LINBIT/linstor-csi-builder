@@ -5,8 +5,8 @@ stages:
   - publish
 
 variables:
-  VIRTER_VERSION: v0.7.1
-  VMSHED_VERSION: v0.8.1
+  VIRTER_VERSION: v0.9.0
+  VMSHED_VERSION: v0.9.0
   BUILD_HELPERS_VERSION: c25556713c0c6f10d153c9e8a4d45702ea916aff
 
 prepare:
@@ -51,15 +51,14 @@ prepare:
       curl -sSfL -u gitlab-ci-token:$CI_JOB_TOKEN https://gitlab.at.linbit.com/linbit/build-helpers/-/archive/$BUILD_HELPERS_VERSION/ignored.tar.gz | tar -xvzf -
       mv build-helpers-* build-helpers
       . build-helpers/gitlab-utils.sh
-    - |
-      ci_prepare_tools
-      ci_fetch_rq
-      ci_fetch_binary virter virter-$VIRTER_VERSION https://github.com/LINBIT/virter/releases/download/$VIRTER_VERSION/virter-linux-amd64
+    - ci_prepare_tools
+    - ci_fetch_binary virter virter-$VIRTER_VERSION https://github.com/LINBIT/virter/releases/download/$VIRTER_VERSION/virter-linux-amd64
     - cd test/vms/
-    - virter image build $BASE "${NAME}-${CI_COMMIT_SHORT_SHA}" -p ${NAME}.provision.toml
+    - docker pull alpine
+    - virter image build $BASE "${NAME}-${CI_COMMIT_SHORT_SHA}" -p ${NAME}.provision.toml ${EXTRA_BUILD_ARGS}
     - virter image save "${NAME}-${CI_COMMIT_SHORT_SHA}" --out "./${NAME}-${CI_COMMIT_SHORT_SHA}.qcow2"
     - virter image rm "${NAME}-${CI_COMMIT_SHORT_SHA}"
-    - curl --user "$LINBIT_REGISTRY_USER:$LINBIT_REGISTRY_PASSWORD" --fail --upload-file "./${NAME}-${CI_COMMIT_SHORT_SHA}.qcow2" "${SANITY_TEST_VM_IMAGE}"
+    - curl --user "$LINBIT_REGISTRY_USER:$LINBIT_REGISTRY_PASSWORD" --fail --upload-file "./${NAME}-${CI_COMMIT_SHORT_SHA}.qcow2" "${TEST_VM_ARCHIVE}/linstor-csi-${NAME}-test-vm"
     - rm "./${NAME}-${CI_COMMIT_SHORT_SHA}.qcow2"
 
 prepare-sanity-vm:
@@ -67,6 +66,13 @@ prepare-sanity-vm:
   variables:
     NAME: sanity
     BASE: debian-10
+
+prepare-e2e-vm:
+  extends: .prepare-vm
+  variables:
+    NAME: e2e
+    BASE: centos-7
+    EXTRA_BUILD_ARGS: "--set values.DockerRegistryMirror=$DOCKER_REGISTRY_MIRROR"
 
 .build:
   stage: build
@@ -84,6 +90,11 @@ prepare-sanity-vm:
     - if [ -n "${CI_COMMIT_TAG}" ]; then NOCACHE=true ; else NOCACHE=false ; fi
     - docker login -u ${LINBIT_REGISTRY_USER} -p ${LINBIT_REGISTRY_PASSWORD} ${LINBIT_DOCKER_REGISTRY}
     - make update upload REGISTRY=${LINBIT_DOCKER_REGISTRY} TAG="${TAG}-${ARCH}" ARCH="${ARCH}" NOCACHE="${NOCACHE}"
+    - echo "CSI_PLUGIN_IMAGE_${ARCH}=${LINBIT_DOCKER_REGISTRY}/linstor-csi:${TAG}-${ARCH}" > .build.env
+  artifacts:
+    reports:
+      dotenv:
+        - .build.env
 
 build-amd64:
   extends: .build
@@ -119,7 +130,7 @@ build-tests:
     paths:
       - test/bin
 
-sanity-test:
+.vmtest:
   stage: test
   tags:
     - libvirt
@@ -135,20 +146,40 @@ sanity-test:
       curl -sSfL -u gitlab-ci-token:$CI_JOB_TOKEN https://gitlab.at.linbit.com/linbit/build-helpers/-/archive/$BUILD_HELPERS_VERSION/ignored.tar.gz | tar -xvzf -
       mv build-helpers-* build-helpers
       . build-helpers/gitlab-utils.sh
-    - |
-      ci_prepare_tools
-      ci_fetch_rq
-      ci_fetch_binary virter virter-$VIRTER_VERSION https://github.com/LINBIT/virter/releases/download/$VIRTER_VERSION/virter-linux-amd64
-      ci_fetch_binary vmshed vmshed-$VMSHED_VERSION https://github.com/LINBIT/vmshed/releases/download/$VMSHED_VERSION/vmshed-linux-amd64
-    - virter image pull linstor-csi-sanity-test-vm -u ${SANITY_TEST_VM_IMAGE} >/dev/null 2>&1 || echo "image already exists"
-    - vmshed --vms vms.toml --tests tests.toml
+    - ci_prepare_tools
+    - ci_fetch_binary virter virter-$VIRTER_VERSION https://github.com/LINBIT/virter/releases/download/$VIRTER_VERSION/virter-linux-amd64
+    - ci_fetch_binary vmshed vmshed-$VMSHED_VERSION https://github.com/LINBIT/vmshed/releases/download/$VMSHED_VERSION/vmshed-linux-amd64
+    - virter image pull linstor-csi-${NAME}-test-vm -u "${TEST_VM_ARCHIVE}/linstor-csi-${NAME}-test-vm" >/dev/null 2>&1 || echo "image already exists"
+    - vmshed --vms vms.${NAME}.toml --tests tests.${NAME}.toml ${VMSHED_ARGS}
   artifacts:
-    name: $CI_PROJECT_NAME-$CI_JOB_ID
+    name: ${NAME}-reports
     paths:
       - tests-out/
     reports:
       junit:
         - tests-out/**/*.xml
+
+sanity-test:
+  extends: .vmtest
+  variables:
+    NAME: sanity
+
+e2e-test:
+  extends: .vmtest
+  rules:
+    - if: $CI_MERGE_REQUEST_ID
+      when: manual
+      allow_failure: true
+    - if: $CI_COMMIT_BRANCH == 'master'
+      when: manual
+      allow_failure: true
+    - if: $CI_COMMIT_TAG
+      when: manual
+      allow_failure: true
+  timeout: 5h
+  variables:
+    NAME: e2e
+    VMSHED_ARGS: --set values.LinstorCSIImage=${CSI_PLUGIN_IMAGE_amd64} --set values.DockerUsername=${TEST_DOCKER_USER} --set values.DockerPassword=${TEST_DOCKER_PASSWORD}
 
 publish:
   stage: publish
@@ -162,7 +193,7 @@ publish:
     entrypoint: [ "" ]
   script:
     - crane auth login -u $PUBLISH_REGISTRY_USER -p $PUBLISH_REGISTRY_PASSWORD $PUBLISH_REGISTRY
-    - crane copy ${LINBIT_DOCKER_REGISTRY}/linstor-csi:${TAG}-amd64 ${PUBLISH_REGISTRY}/amd64/linstor-csi:${TAG}
-    - crane copy ${LINBIT_DOCKER_REGISTRY}/linstor-csi:${TAG}-s390x ${PUBLISH_REGISTRY}/s390x/linstor-csi:${TAG}
+    - crane copy ${CSI_PLUGIN_IMAGE_amd64} ${PUBLISH_REGISTRY}/amd64/linstor-csi:${TAG}
+    - crane copy ${CSI_PLUGIN_IMAGE_s390x} ${PUBLISH_REGISTRY}/s390x/linstor-csi:${TAG}
     - crane tag ${PUBLISH_REGISTRY}/amd64/linstor-csi:${TAG} latest
     - crane tag ${PUBLISH_REGISTRY}/s390x/linstor-csi:${TAG} latest

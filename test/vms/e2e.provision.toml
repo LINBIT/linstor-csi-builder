@@ -1,0 +1,123 @@
+[values]
+KubernetesVersion = "1.19.4"
+KubeadmPlaybookVersion = "v1.19"
+PullImages = "docker.io/calico/kube-controllers:v3.17.0 docker.io/calico/cni:v3.17.0 docker.io/calico/pod2daemon-flexvol:v3.17.0 docker.io/calico/node:v3.17.0"
+DockerRegistryMirror = ""
+
+[[steps]]
+[steps.shell]
+script = """
+if command -v setenforce > /dev/null; then
+        echo "Disabling SELinux"
+        setenforce 0
+        sed -i 's/^SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
+fi
+
+# linbit network routes IPv6 traffic over a slow link
+echo net.ipv6.conf.all.disable_ipv6=1 >> /etc/sysctl.conf
+echo net.ipv6.conf.default.disable_ipv6=1 >> /etc/sysctl.conf
+sysctl -p
+
+if command -v apt-get > /dev/null; then
+        apt-get update
+        apt-get upgrade -y
+elif command -v yum > /dev/null; then
+        yum update -y
+else
+        echo "Unknown package manager"
+        exit 1
+fi
+"""
+
+[[steps]]
+[steps.docker]
+image = "alpine"
+command = ["sh", "-ec", """
+apk add ansible curl openssh-client
+
+mkdir /kubeadm-playbook
+curl -L "https://github.com/ReSearchITEng/kubeadm-playbook/archive/{{ .KubeadmPlaybookVersion }}.tar.gz" | tar xz --strip-components=1 -C /kubeadm-playbook
+cd /kubeadm-playbook
+
+echo "===== Prepare SSH access"
+
+IFS=,; for t in $TARGETS; do
+	if [ "$master_host" = "" ]; then
+		master_host=$t
+	elif [ "$other_hosts" = "" ]; then
+		other_hosts=$t
+	else
+		other_hosts="$other_hosts\n$t"
+	fi
+done
+IFS=" \t\n"
+
+echo "==== Generate Ansible inventory"
+
+cat <<-EOF > hosts.ini
+[primary-master]
+$master_host
+
+[secondary-masters]
+
+[masters:children]
+primary-master
+secondary-masters
+
+[nodes]
+$other_hosts
+EOF
+
+echo "=== ansible inventory:"
+cat hosts.ini
+echo "=== ansible inventory end"
+echo "=== extra vars:"
+echo "$EXTRA_VARS"
+echo "=== extra vars end"
+echo "===== Pre-install with kubeadm-playbook"
+ansible-playbook all_install.yml -i hosts.ini -e "$EXTRA_VARS" --tags common_install,prepull_images
+"""]
+[steps.docker.env]
+EXTRA_VARS = """
+{
+    "KUBERNETES_VERSION": "{{.KubernetesVersion}}"
+}
+"""
+
+[[steps]]
+[steps.shell]
+script = """
+set -ex
+
+set -ex
+
+if [ -n "$DOCKER_REGISTRY_MIRROR" ]; then
+
+  echo "===== Setting up docker repo mirror ====="
+  cat <<-EOF | python
+import json
+import os
+
+try:
+    with open("/etc/docker/daemon.json") as f:
+        docker_settings = json.load(f)
+except FileNotFoundError:
+    docker_settings = {}
+
+docker_settings["registry-mirrors"] = ["$DOCKER_REGISTRY_MIRROR"]
+
+with open("/etc/docker/daemon.json-new", "w") as f:
+    json.dump(docker_settings, f, indent=2)
+
+os.rename("/etc/docker/daemon.json-new", "/etc/docker/daemon.json")
+EOF
+
+  systemctl restart docker
+fi
+
+systemctl enable kubelet
+echo ${PULL_IMAGES} | xargs -n 1 docker pull
+"""
+[steps.shell.env]
+PULL_IMAGES = " {{ .PullImages }}"
+DOCKER_REGISTRY_MIRROR = "{{ .DockerRegistryMirror }}"

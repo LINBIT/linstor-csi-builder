@@ -1,4 +1,3 @@
 [[vms]]
 base_image = "linstor-csi-sanity-test-vm"
 disks = ["name=sanity-test-data,size=20G,bus=virtio"]
-tags = ["sanity"]
