@@ -159,6 +159,7 @@ kubectl --namespace linstor-csi-e2e wait --for=condition=Available --timeout=5m 
 sleep 10
 kubectl --namespace linstor-csi-e2e wait --for=condition=Ready --timeout=10m pod --all
 
+# Apply default storage class for tests
 cat <<-EOF > default-sc.yaml
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
@@ -174,6 +175,7 @@ parameters:
   resourceGroup: "default-linstor-sc"
   csi.storage.k8s.io/fstype: xfs
 EOF
+kubectl apply -f default-sc.yaml
 
 echo "linstor on k8s ready"
 """]
