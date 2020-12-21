@@ -1,6 +1,6 @@
 FROM golang:1 as builder
 
-ARG SEMVER=0.10.2
+ARG SEMVER=0.11.0
 ARG ARCH=amd64
 
 WORKDIR /buildroot
@@ -15,7 +15,7 @@ RUN case $ARCH in \
 	*) echo "unsupported ARCH: $ARCH"; exit 1 ;;\
 	esac
 
-FROM registry.access.redhat.com/ubi7/ubi-minimal
+FROM registry.access.redhat.com/ubi7/ubi-minimal:7.8
 ARG ARCH=amd64
 MAINTAINER Roland Kammerer <roland.kammerer@linbit.com>
 
@@ -31,7 +31,7 @@ COPY centos_clefos_tools.sh /tmp/
 RUN /tmp/centos_clefos_tools.sh "$ARCH"
 RUN microdnf install e2fsprogs xfsprogs util-linux && microdnf clean all
 
-ARG SEMVER=0.10.2
+ARG SEMVER=0.11.0
 ARG RELEASE=1
 LABEL name="LINSTOR CSI driver" \
       vendor="LINBIT" \
