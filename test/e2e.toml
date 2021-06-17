@@ -7,9 +7,9 @@
 # * CSI Snapshot Controller
 # Expects 4 VMs provisioned by ./vms/e2e.provision.toml
 [values]
-KubernetesVersion = "1.19.4"
+KubernetesVersion = "1.21.1"
 KubernetesCNIURL = "https://docs.projectcalico.org/manifests/calico.yaml"
-KubeadmPlaybookVersion = "v1.19"
+KubeadmPlaybookVersion = "v1.20"
 LinstorCSIImage = "drbd.io/linstor-csi:latest"
 LinstorChartValues = """
 .masteraffinity: &masteraffinity

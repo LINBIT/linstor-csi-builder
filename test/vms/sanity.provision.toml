@@ -1,6 +1,6 @@
 [values]
-LinstorVersion = "1.10.0-1"
-DRBDVersion = "9.0.25-1"
+LinstorVersion = "1.12.4-1"
+DRBDVersion = "9.1.2-1"
 
 [[steps]]
 [steps.shell]
@@ -13,7 +13,7 @@ apt-get install -y wget ca-certificates gnupg2 netcat-openbsd rsync
 
 # linstor
 wget -O- https://packages.linbit.com/package-signing-pubkey.asc | apt-key add -
-echo "deb http://packages.linbit.com/piraeus buster drbd-9.0" > /etc/apt/sources.list.d/linbit.list
+echo "deb http://packages.linbit.com/piraeus buster drbd-9" > /etc/apt/sources.list.d/linbit.list
 apt-get update
 apt-get install -y linstor-controller=$LINSTOR_VERSION linstor-satellite=$LINSTOR_VERSION linstor-common=$LINSTOR_VERSION linstor-client drbd-dkms drbd-utils lvm2 linux-headers-`uname -r`
 apt-get clean

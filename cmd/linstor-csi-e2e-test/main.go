@@ -19,7 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/kubernetes/test/e2e/framework"
 	"k8s.io/kubernetes/test/e2e/framework/volume"
-	"k8s.io/kubernetes/test/e2e/storage/testpatterns"
+	storageframework "k8s.io/kubernetes/test/e2e/storage/framework"
 	"k8s.io/kubernetes/test/e2e/storage/testsuites"
 	"k8s.io/kubernetes/test/e2e/storage/utils"
 )
@@ -33,16 +33,16 @@ type linstorDriver struct {
 }
 
 // Returns the SnapshotClass to use during testing.
-func (l linstorDriver) GetSnapshotClass(config *testsuites.PerTestConfig) *unstructured.Unstructured {
+func (l linstorDriver) GetSnapshotClass(config *storageframework.PerTestConfig, parameters map[string]string) *unstructured.Unstructured {
 	ns := config.Framework.Namespace.Name
 	name := fmt.Sprintf("linstor-%s-sc", config.Prefix)
 
-	return testsuites.GetSnapshotClass("linstor.csi.linbit.com", map[string]string{}, ns, name)
+	return utils.GenerateSnapshotClassSpec("linstor.csi.linbit.com", parameters, ns, name)
 }
 
 // Returns the StorageClass to use for DynamicPV testing. Most k8s related parameters (fs- vs. block-mode, fs-type, etc...)
 // will be set by the test itself, just set the LINSTOR related things.
-func (l linstorDriver) GetDynamicProvisionStorageClass(config *testsuites.PerTestConfig, fsType string) *storagev1.StorageClass {
+func (l *linstorDriver) GetDynamicProvisionStorageClass(config *storageframework.PerTestConfig, fsType string) *storagev1.StorageClass {
 	ns := config.Framework.Namespace.Name
 	name := fmt.Sprintf("linstor-%s-sc", config.Prefix)
 
@@ -53,14 +53,14 @@ func (l linstorDriver) GetDynamicProvisionStorageClass(config *testsuites.PerTes
 		"csi.storage.k8s.io/fstype": fsType,
 	}
 
-	return testsuites.GetStorageClass("linstor.csi.linbit.com", params, nil, ns, name)
+	return storageframework.GetStorageClass("linstor.csi.linbit.com", params, nil, ns)
 }
 
 // Get a description of the driver to test.
-func (l linstorDriver) GetDriverInfo() *testsuites.DriverInfo {
-	return &testsuites.DriverInfo{
+func (l *linstorDriver) GetDriverInfo() *storageframework.DriverInfo {
+	return &storageframework.DriverInfo{
 		Name:        "linstor-csi",
-		MaxFileSize: testpatterns.FileSizeLarge,
+		MaxFileSize: storageframework.FileSizeLarge,
 		SupportedFsType: sets.NewString(
 			"", // Default fsType
 			"ext2",
@@ -77,50 +77,55 @@ func (l linstorDriver) GetDriverInfo() *testsuites.DriverInfo {
 		TopologyKeys: []string{
 			"linbit.com/hostname",
 		},
-		Capabilities: map[testsuites.Capability]bool{
-			testsuites.CapPersistence:         true,
-			testsuites.CapBlock:               true,
-			testsuites.CapFsGroup:             true,
-			testsuites.CapExec:                true,
-			testsuites.CapSnapshotDataSource:  true,
-			testsuites.CapPVCDataSource:       true,
-			testsuites.CapMultiPODs:           true,
-			testsuites.CapControllerExpansion: true,
-			testsuites.CapNodeExpansion:       true,
-			testsuites.CapTopology:            true,
+		Capabilities: map[storageframework.Capability]bool{
+			storageframework.CapPersistence:         true,
+			storageframework.CapBlock:               true,
+			storageframework.CapFsGroup:             true,
+			storageframework.CapExec:                true,
+			storageframework.CapSnapshotDataSource:  true,
+			storageframework.CapPVCDataSource:       true,
+			storageframework.CapMultiPODs:           true,
+			storageframework.CapControllerExpansion: true,
+			storageframework.CapNodeExpansion:       true,
+			storageframework.CapTopology:            true,
+			storageframework.CapCapacity:            true,
 		},
-		StressTestOptions: &testsuites.StressTestOptions{
+		StressTestOptions: &storageframework.StressTestOptions{
 			NumPods:     10,
 			NumRestarts: 10,
+		},
+		VolumeSnapshotStressTestOptions: &storageframework.VolumeSnapshotStressTestOptions{
+			NumPods:      10,
+			NumSnapshots: 10,
 		},
 	}
 }
 
-func (l linstorDriver) SkipUnsupportedTest(pattern testpatterns.TestPattern) {}
+func (l *linstorDriver) SkipUnsupportedTest(pattern storageframework.TestPattern) {}
 
-func (l linstorDriver) PrepareTest(f *framework.Framework) (*testsuites.PerTestConfig, func()) {
-	config := &testsuites.PerTestConfig{
+func (l *linstorDriver) PrepareTest(f *framework.Framework) (*storageframework.PerTestConfig, func()) {
+	cfg := &storageframework.PerTestConfig{
 		Driver:    l,
 		Prefix:    "linstor",
 		Framework: f,
 	}
 
-	return config, func() {}
+	return cfg, func() {}
 }
 
 // Ensure our test driver implements the required interfaces.
 var (
-	_ testsuites.TestDriver              = &linstorDriver{}
-	_ testsuites.DynamicPVTestDriver     = &linstorDriver{}
-	_ testsuites.SnapshottableTestDriver = &linstorDriver{}
+	_ storageframework.TestDriver              = &linstorDriver{}
+	_ storageframework.DynamicPVTestDriver     = &linstorDriver{}
+	_ storageframework.SnapshottableTestDriver = &linstorDriver{}
 )
 
 // Register our test suite with the ginkgo test runner. Taken from:
-// https://github.com/kubernetes/kubernetes/blob/v1.19.4/test/e2e/storage/csi_volumes.go#L35
+// https://github.com/kubernetes/kubernetes/blob/v1.21.1/test/e2e/storage/csi_volumes.go#L35
 var _ = utils.SIGDescribe("LINSTOR CSI Volumes", func() {
 	driver := &linstorDriver{}
-	ginkgo.Context(testsuites.GetDriverNameWithFeatureTags(driver), func() {
-		testsuites.DefineTestSuite(driver, append(testsuites.BaseSuites, testsuites.CSISuites...))
+	ginkgo.Context(storageframework.GetDriverNameWithFeatureTags(driver), func() {
+		storageframework.DefineTestSuites(driver, append(testsuites.BaseSuites, testsuites.CSISuites...))
 	})
 })
 

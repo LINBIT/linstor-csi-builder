@@ -1,7 +1,7 @@
 [values]
-KubernetesVersion = "1.19.4"
-KubeadmPlaybookVersion = "v1.19"
-PullImages = "docker.io/calico/kube-controllers:v3.17.0 docker.io/calico/cni:v3.17.0 docker.io/calico/pod2daemon-flexvol:v3.17.0 docker.io/calico/node:v3.17.0"
+KubernetesVersion = "1.21.1"
+KubeadmPlaybookVersion = "v1.20"
+PullImages = "docker.io/calico/kube-controllers:v3.19.1 docker.io/calico/cni:v3.19.1 docker.io/calico/pod2daemon-flexvol:v3.19.1 docker.io/calico/node:v3.19.1"
 DockerRegistryMirror = ""
 
 [[steps]]
