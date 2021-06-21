@@ -15,15 +15,14 @@ RUN case $ARCH in \
 	*) echo "unsupported ARCH: $ARCH"; exit 1 ;;\
 	esac
 
-FROM registry.access.redhat.com/ubi7/ubi-minimal:7.8
+FROM registry.access.redhat.com/ubi7/ubi-minimal:7
 ARG ARCH=amd64
 MAINTAINER Roland Kammerer <roland.kammerer@linbit.com>
 
 # Recommendation for non-minimal UBI images is to run:
 # yum -y update-minimal --security --sec-severity=Important --sec-severity=Critical
 # We use the next best thing available:
-# Currently disabled until CentOS/ClefOS catch up with UBI7
-# RUN microdnf update -y && rm -rf /var/cache/yum
+RUN microdnf update -y && rm -rf /var/cache/yum
 
 # repo for additional tools not in UBI (cryptsetup,...)
 COPY --from=cent7 /etc/pki/rpm-gpg/tools-key /etc/pki/rpm-gpg/
