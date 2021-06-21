@@ -15,7 +15,7 @@ RUN case $ARCH in \
 	*) echo "unsupported ARCH: $ARCH"; exit 1 ;;\
 	esac
 
-FROM registry.access.redhat.com/ubi7/ubi-minimal:7
+FROM registry.access.redhat.com/ubi7/ubi-minimal:latest
 ARG ARCH=amd64
 MAINTAINER Roland Kammerer <roland.kammerer@linbit.com>
 
