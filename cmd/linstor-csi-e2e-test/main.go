@@ -45,11 +45,16 @@ func (l linstorDriver) GetSnapshotClass(config *storageframework.PerTestConfig, 
 func (l *linstorDriver) GetDynamicProvisionStorageClass(config *storageframework.PerTestConfig, fsType string) *storagev1.StorageClass {
 	ns := config.Framework.Namespace.Name
 	name := fmt.Sprintf("linstor-%s-sc", config.Prefix)
+	placementPolicy := "AutoPlace"
+	if config.Framework.BaseName == "topology" {
+		placementPolicy = "FollowTopology"
+	}
 
 	params := map[string]string{
 		"autoPlace":                 fmt.Sprintf("%d", replicas),
 		"storagePool":               linstorStoragePool,
 		"resourceGroup":             name,
+		"placementPolicy":           placementPolicy,
 		"csi.storage.k8s.io/fstype": fsType,
 	}
 
