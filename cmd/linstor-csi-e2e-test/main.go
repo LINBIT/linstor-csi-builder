@@ -46,12 +46,18 @@ func (l *linstorDriver) GetDynamicProvisionStorageClass(config *storageframework
 	ns := config.Framework.Namespace.Name
 	name := fmt.Sprintf("linstor-%s-sc", config.Prefix)
 	placementPolicy := "AutoPlace"
+	autoplace := fmt.Sprintf("%d", replicas)
+	allowRemoteVolumeAccess := "true"
+
 	if config.Framework.BaseName == "topology" {
 		placementPolicy = "FollowTopology"
+		autoplace = "1"
+		allowRemoteVolumeAccess = "false"
 	}
 
 	params := map[string]string{
-		"autoPlace":                 fmt.Sprintf("%d", replicas),
+		"autoPlace":                 autoplace,
+		"allowRemoteVolumeAccess":   allowRemoteVolumeAccess,
 		"storagePool":               linstorStoragePool,
 		"resourceGroup":             name,
 		"placementPolicy":           placementPolicy,
@@ -130,7 +136,7 @@ var (
 var _ = utils.SIGDescribe("LINSTOR CSI Volumes", func() {
 	driver := &linstorDriver{}
 	ginkgo.Context(storageframework.GetDriverNameWithFeatureTags(driver), func() {
-		storageframework.DefineTestSuites(driver, append(testsuites.BaseSuites, testsuites.CSISuites...))
+		storageframework.DefineTestSuites(driver, testsuites.CSISuites)
 	})
 })
 
