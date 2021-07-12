@@ -1,0 +1,34 @@
+.masteraffinity: &masteraffinity
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: node-role.kubernetes.io/master
+              operator: Exists
+.mastertoleration: &mastertoleration
+  - key: node-role.kubernetes.io/master
+    operator: Exists
+    effect: NoSchedule
+
+stork:
+  enabled: false
+csi:
+  controllerAffinity: *masteraffinity
+  controllerTolerations: *mastertoleration
+  enableTopology: true
+csi-snapshotter:
+  enabled: false
+operator:
+  affinity: *masteraffinity
+  tolerations: *mastertoleration
+  controller:
+    affinity: *masteraffinity
+    tolerations: *mastertoleration
+  satelliteSet:
+    storagePools:
+      lvmThinPools:
+        - name: e2epool
+          volumeGroup: ""
+          thinVolume: thin
+          devicePaths:
+            - /dev/vdb

@@ -64,7 +64,9 @@ func (l *linstorDriver) GetDynamicProvisionStorageClass(config *storageframework
 		"csi.storage.k8s.io/fstype": fsType,
 	}
 
-	return storageframework.GetStorageClass("linstor.csi.linbit.com", params, nil, ns)
+	sc := storageframework.GetStorageClass("linstor.csi.linbit.com", params, nil, ns)
+	sc.MountOptions	= []string{"sync"}
+	return sc
 }
 
 // Get a description of the driver to test.

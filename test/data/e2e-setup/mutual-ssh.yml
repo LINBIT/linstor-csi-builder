@@ -1,0 +1,19 @@
+---
+- name: Ensure mutual ssh access
+  hosts: all
+  tasks:
+    - name: create .ssh directory
+      file:
+        path: /root/.ssh
+        state: directory
+        mode: '0755'
+    - name: copy ssh key
+      copy:
+        src: /root/.ssh/id_rsa
+        dest: /root/.ssh/id_rsa
+        mode: '0600'
+    - name: copy known_hosts
+      copy:
+        src: /root/.ssh/known_hosts
+        dest: /root/.ssh/known_hosts
+        mode: '0644'

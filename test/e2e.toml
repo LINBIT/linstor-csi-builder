@@ -7,47 +7,10 @@
 # * CSI Snapshot Controller
 # Expects 4 VMs provisioned by ./vms/e2e.provision.toml
 [values]
-KubernetesVersion = "1.21.1"
+KubernetesVersion = "1.21.2"
 KubernetesCNIURL = "https://docs.projectcalico.org/manifests/calico.yaml"
 KubeadmPlaybookVersion = "v1.20"
 LinstorCSIImage = "drbd.io/linstor-csi:latest"
-LinstorChartValues = """
-.masteraffinity: &masteraffinity
-  nodeAffinity:
-    requiredDuringSchedulingIgnoredDuringExecution:
-      nodeSelectorTerms:
-      - matchExpressions:
-        - key: node-role.kubernetes.io/master
-          operator: Exists
-.mastertoleration: &mastertoleration
-  - key: node-role.kubernetes.io/master
-    operator: Exists
-    effect: NoSchedule
-
-stork:
-  enabled: false
-csi:
-  controllerAffinity: *masteraffinity
-  controllerTolerations: *mastertoleration
-  enableTopology: true
-csi-snapshotter:
-  affinity: *masteraffinity
-  tolerations: *mastertoleration
-operator:
-  affinity: *masteraffinity
-  tolerations: *mastertoleration
-  controller:
-    affinity: *masteraffinity
-    tolerations: *mastertoleration
-  satelliteSet:
-    storagePools:
-      lvmThinPools:
-        - name: e2epool
-          volumeGroup: ""
-          thinVolume: thin
-          devicePaths:
-          - /dev/vdb
-"""
 ChartRepoURL = "https://charts.linstor.io"
 DockerServer = "drbd.io"
 DockerUsername = "<fill>"
@@ -102,37 +65,26 @@ echo "===== Install with kubeadm-playbook"
 ansible-playbook all_install.yml -i hosts.ini -e "$EXTRA_VARS" --skip-tags common_install,prepull_images,storage,helm
 
 echo "=== set up mutual SSH access"
-
-cat <<-EOF > ssh_access.yml
----
-- name: Ensure mutual ssh access
-  hosts: all
-  tasks:
-  - name: create .ssh directory
-    file:
-      path: /root/.ssh
-      state: directory
-      mode: '0755'
-  - name: copy ssh key
-    copy:
-      src: /root/.ssh/id_rsa
-      dest: /root/.ssh/id_rsa
-      mode: '0600'
-  - name: copy known_hosts
-    copy:
-      src: /root/.ssh/known_hosts
-      dest: /root/.ssh/known_hosts
-      mode: '0644'
-EOF
-ansible-playbook ssh_access.yml -i hosts.ini
+ansible-playbook /virter/workspace/test/data/e2e-setup/mutual-ssh.yml -i hosts.ini
 
 echo "=== configure kubectl and helm"
-curl -fsSL https://get.helm.sh/helm-v3.4.1-linux-amd64.tar.gz | tar --strip-components=1 -xzC /usr/local/bin/ linux-amd64/helm
+curl -fsSL https://get.helm.sh/helm-v3.6.2-linux-amd64.tar.gz | tar --strip-components=1 -xzC /usr/local/bin/ linux-amd64/helm
 curl -fsSL "https://storage.googleapis.com/kubernetes-release/release/v{{ .KubernetesVersion }}/bin/linux/amd64/kubectl" > /usr/local/bin/kubectl
 chmod +x /usr/local/bin/kubectl
 
 mkdir -p ~/.kube
 scp $master_host:/etc/kubernetes/admin.conf ~/.kube/config
+
+echo "=== install csi snapshot controller in namespace 'snapshotter'"
+kubectl create namespace snapshotter
+helm repo add piraeus-charts https://piraeus.io/helm-charts/
+
+helm install validation-webhook piraeus-charts/snapshot-validation-webhook --namespace snapshotter --values /virter/workspace/test/data/e2e-setup/snapshotter-chart-override.yml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v4.1.1/client/config/crd/snapshot.storage.k8s.io_volumesnapshotclasses.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v4.1.1/client/config/crd/snapshot.storage.k8s.io_volumesnapshots.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v4.1.1/client/config/crd/snapshot.storage.k8s.io_volumesnapshotcontents.yaml
+helm install snapshot-controller piraeus-charts/snapshot-controller --namespace snapshotter --values /virter/workspace/test/data/e2e-setup/snapshotter-chart-override.yml
+kubectl --namespace snapshotter wait --for=condition=Ready --timeout=5m pod --all
 
 echo "=== install linstor on k8s"
 
@@ -140,18 +92,10 @@ MASTER_NODE="$(kubectl get nodes -l node-role.kubernetes.io/master -o jsonpath='
 helm repo add linstor $CHART_REPO_URL
 helm install linstor-etcd-pv linstor/pv-hostpath --set "nodes={$MASTER_NODE}"
 
-cat <<-EOF > helm-values.yaml
-{{ .LinstorChartValues }}
-EOF
-
-echo "=== helm override:"
-cat helm-values.yaml
-echo "=== helm override end"
-
 kubectl create namespace linstor-csi-e2e
 kubectl create --namespace linstor-csi-e2e secret docker-registry drbdiocred --docker-server=${DOCKER_SERVER} --docker-username=${DOCKER_USERNAME} --docker-password=${DOCKER_PASSWORD}
 
-helm install linstor linstor/linstor --values helm-values.yaml --namespace linstor-csi-e2e --set csi.pluginImage=${PLUGIN_IMAGE}
+helm install linstor linstor/linstor --values /virter/workspace/test/data/e2e-setup/default-chart-overrides.yml --namespace linstor-csi-e2e --set csi.pluginImage=${PLUGIN_IMAGE}
 
 kubectl --namespace linstor-csi-e2e wait --for=condition=Available --timeout=5m deployments/linstor-operator
 
@@ -160,22 +104,7 @@ sleep 10
 kubectl --namespace linstor-csi-e2e wait --for=condition=Ready --timeout=10m pod --all
 
 # Apply default storage class for tests
-cat <<-EOF > default-sc.yaml
-apiVersion: storage.k8s.io/v1
-kind: StorageClass
-metadata:
-  name: default-linstor-sc
-  annotations:
-    storageclass.kubernetes.io/is-default-class: "true"
-provisioner: linstor.csi.linbit.com
-allowVolumeExpansion: true
-parameters:
-  autoPlace: "2"
-  storagePool: "e2epool"
-  resourceGroup: "default-linstor-sc"
-  csi.storage.k8s.io/fstype: xfs
-EOF
-kubectl apply -f default-sc.yaml
+kubectl apply -f /virter/workspace/test/data/e2e-setup/default-sc.yml
 
 echo "linstor on k8s ready"
 """]
