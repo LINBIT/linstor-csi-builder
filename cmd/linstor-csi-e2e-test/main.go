@@ -48,11 +48,16 @@ func (l *linstorDriver) GetDynamicProvisionStorageClass(config *storageframework
 	placementPolicy := "AutoPlace"
 	autoplace := fmt.Sprintf("%d", replicas)
 	allowRemoteVolumeAccess := "true"
+	bindingMode := storagev1.VolumeBindingImmediate
 
 	if config.Framework.BaseName == "topology" {
 		placementPolicy = "FollowTopology"
 		autoplace = "1"
 		allowRemoteVolumeAccess = "false"
+	}
+
+	if config.Framework.BaseName == "capacity" {
+		bindingMode = storagev1.VolumeBindingWaitForFirstConsumer
 	}
 
 	params := map[string]string{
@@ -64,8 +69,8 @@ func (l *linstorDriver) GetDynamicProvisionStorageClass(config *storageframework
 		"csi.storage.k8s.io/fstype": fsType,
 	}
 
-	sc := storageframework.GetStorageClass("linstor.csi.linbit.com", params, nil, ns)
-	sc.MountOptions	= []string{"sync"}
+	sc := storageframework.GetStorageClass("linstor.csi.linbit.com", params, &bindingMode, ns)
+	sc.MountOptions = []string{"sync"}
 	return sc
 }
 
@@ -89,6 +94,8 @@ func (l *linstorDriver) GetDriverInfo() *storageframework.DriverInfo {
 		SupportedMountOption: sets.NewString("noatime", "discard"),
 		TopologyKeys: []string{
 			"linbit.com/hostname",
+			"linbit.com/sp-DfltDisklessStorPool",
+			"linbit.com/sp-" + linstorStoragePool,
 		},
 		Capabilities: map[storageframework.Capability]bool{
 			storageframework.CapPersistence:         true,
