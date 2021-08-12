@@ -1,6 +1,6 @@
 FROM golang:1 as builder
 
-ARG SEMVER=0.13.1
+ARG SEMVER=0.14.0-rc1
 ARG ARCH=amd64
 
 WORKDIR /buildroot
@@ -30,7 +30,7 @@ COPY centos_clefos_tools.sh /tmp/
 RUN /tmp/centos_clefos_tools.sh "$ARCH"
 RUN microdnf install e2fsprogs xfsprogs util-linux && microdnf clean all
 
-ARG SEMVER=0.13.1
+ARG SEMVER=0.14.0-rc1
 ARG RELEASE=1
 LABEL name="LINSTOR CSI driver" \
       vendor="LINBIT" \
