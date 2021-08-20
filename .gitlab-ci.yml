@@ -130,6 +130,33 @@ build-tests:
     paths:
       - test/bin
 
+container_scanning:
+  stage: test
+  rules:
+    - if: $CI_MERGE_REQUEST_ID
+    - if: $CI_COMMIT_BRANCH == 'master'
+    - if: $CI_COMMIT_TAG
+  image:
+    name: docker.io/aquasec/trivy:latest
+    entrypoint: [""]
+  variables:
+    # No need to clone the repo, we exclusively work on artifacts.  See
+    # https://docs.gitlab.com/ee/ci/runners/README.html#git-strategy
+    GIT_STRATEGY: none
+  script:
+    - trivy --version
+    - trivy client --exit-code 0 --format template --template "@/contrib/html.tpl" -o container-scan.html "$CSI_PLUGIN_IMAGE_amd64"
+    # Prints full report
+    - trivy client --exit-code 0 "$CSI_PLUGIN_IMAGE_amd64"
+    # Fail on critical (unfixed) vulnerabilities
+    - trivy --exit-code 1 --ignore-unfixed --severity CRITICAL --no-progress "$CSI_PLUGIN_IMAGE_amd64"
+  # Ideally, we would use container_scanning for the artifact here. That is currently a paid feature, so we have to use code quality
+  artifacts:
+    when: always
+    expose_as: "Container Scan"
+    paths:
+      - container-scan.html
+
 .vmtest:
   stage: test
   tags:
