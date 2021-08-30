@@ -18,18 +18,15 @@ addentry() {
 	EOF
 }
 
-REPOFILE=/etc/yum.repos.d/Tools-Base.repo
-truncate -s0 "$REPOFILE"
-
 case $1 in
 	amd64)
 		for i in os extras updates; do
-			addentry "$i" "baseurl=http://mirror.centos.org/centos/7/${i}/\$basearch/" >> $REPOFILE
+			addentry "$i" "baseurl=http://mirror.centos.org/centos/7/${i}/\$basearch/"
 		done
 		;;
 	s390x)
 		# weird enough s390x does not need the extra repo
-		addentry 'os' 'mirrorlist=http://mirrors.sinenomine.net/clefos?releasever=7&arch=$basearch&repo=os' >> $REPOFILE
+		addentry 'os' 'mirrorlist=http://mirrors.sinenomine.net/clefos?releasever=7&arch=$basearch&repo=os'
 		;;
 	*) die "unsupported architecture: $1";;
 esac

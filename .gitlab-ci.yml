@@ -74,7 +74,7 @@ prepare-e2e-vm:
     BASE: centos-7
     EXTRA_BUILD_ARGS: "--set values.DockerRegistryMirror=$DOCKER_REGISTRY_MIRROR"
 
-.build:
+build:
   stage: build
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
@@ -84,36 +84,29 @@ prepare-e2e-vm:
     - if: $CI_COMMIT_BRANCH == 'master'
     - if: $CI_COMMIT_TAG
   tags:
-    - shell
+    - multiarch
   script:
     # Use NOCACHE=true for release builds
     - if [ -n "${CI_COMMIT_TAG}" ]; then NOCACHE=true ; else NOCACHE=false ; fi
     - docker login -u ${LINBIT_REGISTRY_USER} -p ${LINBIT_REGISTRY_PASSWORD} ${LINBIT_DOCKER_REGISTRY}
-    - make update upload REGISTRY=${LINBIT_DOCKER_REGISTRY} TAG="${TAG}-${ARCH}" ARCH="${ARCH}" NOCACHE="${NOCACHE}"
-    - echo "CSI_PLUGIN_IMAGE_${ARCH}=${LINBIT_DOCKER_REGISTRY}/linstor-csi:${TAG}-${ARCH}" > .build.env
+    # update package source image(s)
+    - docker pull --platform linux/amd64 docker.io/centos:7
+    - docker tag docker.io/centos:7 ${LINBIT_DOCKER_REGISTRY}/linstor-csi-pkg-source:$CI_COMMIT_REF_SLUG-amd64
+    - docker push ${LINBIT_DOCKER_REGISTRY}/linstor-csi-pkg-source:$CI_COMMIT_REF_SLUG-amd64
+    - docker pull --platform linux/s390x docker.io/clefos:7
+    - docker tag docker.io/clefos:7 ${LINBIT_DOCKER_REGISTRY}/linstor-csi-pkg-source:$CI_COMMIT_REF_SLUG-s390x
+    - docker push ${LINBIT_DOCKER_REGISTRY}/linstor-csi-pkg-source:$CI_COMMIT_REF_SLUG-s390x
+    - docker manifest create --amend ${LINBIT_DOCKER_REGISTRY}/linstor-csi-pkg-source:$CI_COMMIT_REF_SLUG ${LINBIT_DOCKER_REGISTRY}/linstor-csi-pkg-source:$CI_COMMIT_REF_SLUG-s390x ${LINBIT_DOCKER_REGISTRY}/linstor-csi-pkg-source:$CI_COMMIT_REF_SLUG-amd64
+    - docker manifest push ${LINBIT_DOCKER_REGISTRY}/linstor-csi-pkg-source:$CI_COMMIT_REF_SLUG
+    - docker manifest rm ${LINBIT_DOCKER_REGISTRY}/linstor-csi-pkg-source:$CI_COMMIT_REF_SLUG
+    # Actual build
+    - sed -i s~docker.io/centos:7~${LINBIT_DOCKER_REGISTRY}/linstor-csi-pkg-source:$CI_COMMIT_REF_SLUG~ Dockerfile
+    - docker buildx build --platform linux/amd64,linux/s390x --build-arg=PACKAGE_SOURCE_IMAGE=${LINBIT_DOCKER_REGISTRY}/linstor-csi-pkg-source:$CI_COMMIT_REF_SLUG --pull --push -t "${LINBIT_DOCKER_REGISTRY}/linstor-csi:${TAG}" --no-cache="${NOCACHE}" .
+    - echo "CSI_PLUGIN_IMAGE=${LINBIT_DOCKER_REGISTRY}/linstor-csi:${TAG}" > .build.env
   artifacts:
     reports:
       dotenv:
         - .build.env
-
-build-amd64:
-  extends: .build
-  variables:
-    ARCH: amd64
-  tags:
-    - shell
-
-build-s390x:
-  rules:
-    - if: $CI_MERGE_REQUEST_ID
-      when: manual
-      allow_failure: true
-    - if: $CI_COMMIT_TAG
-  extends: .build
-  variables:
-    ARCH: s390x
-  tags:
-    - s390x
 
 build-tests:
   stage: build
@@ -145,11 +138,11 @@ container_scanning:
     GIT_STRATEGY: none
   script:
     - trivy --version
-    - trivy client --exit-code 0 --format template --template "@/contrib/html.tpl" -o container-scan.html "$CSI_PLUGIN_IMAGE_amd64"
+    - trivy client --exit-code 0 --format template --template "@/contrib/html.tpl" -o container-scan.html "$CSI_PLUGIN_IMAGE"
     # Prints full report
-    - trivy client --exit-code 0 "$CSI_PLUGIN_IMAGE_amd64"
+    - trivy client --exit-code 0 "$CSI_PLUGIN_IMAGE"
     # Fail on critical (unfixed) vulnerabilities
-    - trivy --exit-code 1 --ignore-unfixed --severity CRITICAL --no-progress "$CSI_PLUGIN_IMAGE_amd64"
+    - trivy --exit-code 1 --ignore-unfixed --severity CRITICAL --no-progress "$CSI_PLUGIN_IMAGE"
   # Ideally, we would use container_scanning for the artifact here. That is currently a paid feature, so we have to use code quality
   artifacts:
     when: always
@@ -206,7 +199,7 @@ e2e-test:
   timeout: 5h
   variables:
     NAME: e2e
-    VMSHED_ARGS: --set values.LinstorCSIImage=${CSI_PLUGIN_IMAGE_amd64} --set values.DockerUsername=${TEST_DOCKER_USER} --set values.DockerPassword=${TEST_DOCKER_PASSWORD}
+    VMSHED_ARGS: --set values.LinstorCSIImage=${CSI_PLUGIN_IMAGE} --set values.DockerUsername=${TEST_DOCKER_USER} --set values.DockerPassword=${TEST_DOCKER_PASSWORD}
 
 publish:
   stage: publish
@@ -220,7 +213,7 @@ publish:
     entrypoint: [ "" ]
   script:
     - crane auth login -u $PUBLISH_REGISTRY_USER -p $PUBLISH_REGISTRY_PASSWORD $PUBLISH_REGISTRY
-    - crane copy ${CSI_PLUGIN_IMAGE_amd64} ${PUBLISH_REGISTRY}/amd64/linstor-csi:${TAG}
-    - crane copy ${CSI_PLUGIN_IMAGE_s390x} ${PUBLISH_REGISTRY}/s390x/linstor-csi:${TAG}
+    - crane copy --platform linux/amd64 ${CSI_PLUGIN_IMAGE} ${PUBLISH_REGISTRY}/amd64/linstor-csi:${TAG}
+    - crane copy --platform linux/s390x ${CSI_PLUGIN_IMAGE} ${PUBLISH_REGISTRY}/s390x/linstor-csi:${TAG}
     - crane tag ${PUBLISH_REGISTRY}/amd64/linstor-csi:${TAG} latest
     - crane tag ${PUBLISH_REGISTRY}/s390x/linstor-csi:${TAG} latest
