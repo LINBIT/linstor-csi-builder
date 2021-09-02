@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 FROM --platform=$BUILDPLATFORM golang:1.17 as builder
 ARG TARGETARCH
-ARG SEMVER=0.14.0-rc1
+ARG SEMVER=0.14.0
 
 WORKDIR /buildroot
 COPY linstor-csi /buildroot
@@ -32,7 +32,7 @@ RUN /opt/centos_clefos_tools.sh "$TARGETARCH" > /etc/yum.repos.d/tools.repo \
     && yum -y clean all \
     && rm /etc/yum.repos.d/tools.repo
 
-ARG SEMVER=0.14.0-rc1
+ARG SEMVER=0.14.0
 ARG RELEASE=1
 LABEL name="LINSTOR CSI driver" \
       vendor="LINBIT" \
