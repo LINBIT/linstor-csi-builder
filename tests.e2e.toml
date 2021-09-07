@@ -3,7 +3,7 @@ test_timeout = "5h"
 artifacts = [
     "/e2e-report.xml",
     "/e2e-report.json",
-    "/logs/*",
+    "/var/log/pods",
 ]
 
 [tests]

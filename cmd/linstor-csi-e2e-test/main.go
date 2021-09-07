@@ -45,14 +45,12 @@ func (l linstorDriver) GetSnapshotClass(config *storageframework.PerTestConfig, 
 func (l *linstorDriver) GetDynamicProvisionStorageClass(config *storageframework.PerTestConfig, fsType string) *storagev1.StorageClass {
 	ns := config.Framework.Namespace.Name
 	name := fmt.Sprintf("linstor-%s-sc", config.Prefix)
-	placementPolicy := "AutoPlace"
-	autoplace := fmt.Sprintf("%d", replicas)
+	placementCount := fmt.Sprintf("%d", replicas)
 	allowRemoteVolumeAccess := "true"
 	bindingMode := storagev1.VolumeBindingImmediate
 
 	if config.Framework.BaseName == "topology" {
-		placementPolicy = "FollowTopology"
-		autoplace = "1"
+		placementCount = "1"
 		allowRemoteVolumeAccess = "false"
 	}
 
@@ -61,11 +59,10 @@ func (l *linstorDriver) GetDynamicProvisionStorageClass(config *storageframework
 	}
 
 	params := map[string]string{
-		"autoPlace":                 autoplace,
+		"placementCount":            placementCount,
 		"allowRemoteVolumeAccess":   allowRemoteVolumeAccess,
 		"storagePool":               linstorStoragePool,
 		"resourceGroup":             name,
-		"placementPolicy":           placementPolicy,
 		"csi.storage.k8s.io/fstype": fsType,
 	}
 
@@ -140,15 +137,6 @@ var (
 	_ storageframework.SnapshottableTestDriver = &linstorDriver{}
 )
 
-// Register our test suite with the ginkgo test runner. Taken from:
-// https://github.com/kubernetes/kubernetes/blob/v1.21.1/test/e2e/storage/csi_volumes.go#L35
-var _ = utils.SIGDescribe("LINSTOR CSI Volumes", func() {
-	driver := &linstorDriver{}
-	ginkgo.Context(storageframework.GetDriverNameWithFeatureTags(driver), func() {
-		storageframework.DefineTestSuites(driver, testsuites.CSISuites)
-	})
-})
-
 func main() {
 	framework.RegisterCommonFlags(flag.CommandLine)
 	framework.RegisterClusterFlags(flag.CommandLine)
@@ -156,6 +144,16 @@ func main() {
 	flag.StringVar(&linstorStoragePool, "linstor-csi-e2e.storage-pool", "e2epool", "set the LINSTOR storage pool to use for testing")
 	flag.IntVar(&replicas, "linstor-csi-e2e.volume-replicas", 2, "set the number of volume replicas LINSTOR should create")
 	flag.Parse()
+
+	// Register our test suite with the ginkgo test runner. Taken from:
+	// https://github.com/kubernetes/kubernetes/blob/v1.21.1/test/e2e/storage/csi_volumes.go#L35
+	var _ = utils.SIGDescribe("LINSTOR CSI Volumes", func() {
+		driver := &linstorDriver{}
+		ginkgo.Context(storageframework.GetDriverNameWithFeatureTags(driver), func() {
+			storageframework.DefineTestSuites(driver, testsuites.CSISuites)
+		})
+	})
+
 
 	gomega.RegisterFailHandler(ginkgo.Fail)
 	ginkgo.RunSpecs(&testing.T{}, "CSI Suite")

@@ -79,23 +79,19 @@ echo "=== install csi snapshot controller in namespace 'snapshotter'"
 kubectl create namespace snapshotter
 helm repo add piraeus-charts https://piraeus.io/helm-charts/
 
-helm install validation-webhook piraeus-charts/snapshot-validation-webhook --namespace snapshotter --values /virter/workspace/test/data/e2e-setup/snapshotter-chart-override.yml
-kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v4.1.1/client/config/crd/snapshot.storage.k8s.io_volumesnapshotclasses.yaml
-kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v4.1.1/client/config/crd/snapshot.storage.k8s.io_volumesnapshots.yaml
-kubectl apply -f https://raw.githubusercontent.com/kubernetes-csi/external-snapshotter/v4.1.1/client/config/crd/snapshot.storage.k8s.io_volumesnapshotcontents.yaml
-helm install snapshot-controller piraeus-charts/snapshot-controller --namespace snapshotter --values /virter/workspace/test/data/e2e-setup/snapshotter-chart-override.yml
+helm install --namespace snapshotter snapshot-validation-webhook piraeus-charts/snapshot-validation-webhook --values /virter/workspace/test/data/e2e-setup/snapshotter-chart-override.yml --wait
+helm install --namespace snapshotter snapshot-controller piraeus-charts/snapshot-controller --values /virter/workspace/test/data/e2e-setup/snapshotter-chart-override.yml --wait
 kubectl --namespace snapshotter wait --for=condition=Ready --timeout=5m pod --all
 
 echo "=== install linstor on k8s"
 
-MASTER_NODE="$(kubectl get nodes -l node-role.kubernetes.io/master -o jsonpath='{.items[*].metadata.name}')"
 helm repo add linstor $CHART_REPO_URL
-helm install linstor-etcd-pv linstor/pv-hostpath --set "nodes={$MASTER_NODE}"
+helm install linstor-etcd-pv linstor/pv-hostpath
 
 kubectl create namespace linstor-csi-e2e
 kubectl create --namespace linstor-csi-e2e secret docker-registry drbdiocred --docker-server=${DOCKER_SERVER} --docker-username=${DOCKER_USERNAME} --docker-password=${DOCKER_PASSWORD}
 
-helm install linstor linstor/linstor --values /virter/workspace/test/data/e2e-setup/default-chart-overrides.yml --namespace linstor-csi-e2e --set csi.pluginImage=${PLUGIN_IMAGE}
+helm install linstor linstor/linstor --devel --values /virter/workspace/test/data/e2e-setup/default-chart-overrides.yml --namespace linstor-csi-e2e --set csi.pluginImage=${PLUGIN_IMAGE}
 
 kubectl --namespace linstor-csi-e2e wait --for=condition=Available --timeout=5m deployments/linstor-operator
 
@@ -137,8 +133,4 @@ if ! kubectl get nodes -l node-role.kubernetes.io/master | grep "$(hostname -f)"
 fi
 
 /opt/teste2e --ginkgo.reportFile=/e2e-report.xml --linstor-csi-e2e.storage-pool=e2epool --linstor-csi-e2e.volume-replicas=2
-
-echo "===== Collect cluster logs ====="
-mkdir -p /logs
-kubectl get pods --namespace linstor-csi-e2e -o name | xargs -i sh -c 'kubectl logs --namespace linstor-csi-e2e "{}" --all-containers --prefix > "/logs/$(basename {}).log"'
 """
