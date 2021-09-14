@@ -7,7 +7,7 @@ stages:
 variables:
   VIRTER_VERSION: v0.12.0
   VMSHED_VERSION: v0.12.0
-  BUILD_HELPERS_VERSION: dfbf85c26dd39ad1a88807b01fda1dc1d536abbb
+  BUILD_HELPERS_VERSION: 7084b5a65d9a89bd399e6a8a967344427125d37c
 
 prepare:
   image: nexus.at.linbit.com:5000/build-helpers:${BUILD_HELPERS_VERSION}
@@ -22,9 +22,12 @@ prepare:
     # git describe does not need the submodule
     GIT_SUBMODULE_STRATEGY: none
   script:
-    - SEMVER="$(semver-from-git.py)"
-    - echo "SEMVER=${SEMVER}" >> .ci-build.env
-    - echo "TAG=v${SEMVER/+/-}" >> .ci-build.env
+    - semver-from-git.py print-env > .ci-build.env
+    - . .ci-build.env
+    - lbvers.py print --base $BASE --build $BUILD --build-nr $BUILD_NR --project linstor-csi >> .ci-build.env
+    - if [ "$BUILD" = "final" ]; then
+    -   lbvers.py check --base $BASE --build $BUILD --build-nr $BUILD_NR --rpm-spec linstor-csi.spec
+    - fi
   artifacts:
     reports:
       dotenv: .ci-build.env
@@ -89,8 +92,8 @@ build:
     # Use NOCACHE=true for release builds
     - if [ -n "${CI_COMMIT_TAG}" ]; then NOCACHE=true ; else NOCACHE=false ; fi
     - docker login -u ${LINBIT_REGISTRY_USER} -p ${LINBIT_REGISTRY_PASSWORD} ${LINBIT_DOCKER_REGISTRY}
-    - docker buildx build --platform linux/amd64,linux/s390x --build-arg=REPO_SOURCE=${LINBIT_DOCKER_REGISTRY}/rhel-container-secrets:latest --pull --push -t "${LINBIT_DOCKER_REGISTRY}/linstor-csi:${TAG}" --no-cache="${NOCACHE}" .
-    - echo "CSI_PLUGIN_IMAGE=${LINBIT_DOCKER_REGISTRY}/linstor-csi:${TAG}" > .build.env
+    - docker buildx build --platform linux/amd64,linux/s390x --build-arg=REPO_SOURCE=${LINBIT_DOCKER_REGISTRY}/rhel-container-secrets:latest --pull --push -t "${LINBIT_DOCKER_REGISTRY}/linstor-csi:${CONTAINER_TAG}" --no-cache="${NOCACHE}" .
+    - echo "CSI_PLUGIN_IMAGE=${LINBIT_DOCKER_REGISTRY}/linstor-csi:${CONTAINER_TAG}" > .build.env
   artifacts:
     reports:
       dotenv:
@@ -110,6 +113,22 @@ build-tests:
   artifacts:
     paths:
       - test/bin
+
+make-tar:
+  stage: build
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+  rules:
+    - if: $CI_MERGE_REQUEST_ID
+    - if: $CI_COMMIT_BRANCH == 'master'
+    - if: $CI_COMMIT_TAG
+  image: golang:1
+  script:
+    - mkdir out
+    - make tar BASE=$BASE BUILD=$BUILD BUILD_NR=$BUILD_NR TARBALL_DIR=$TARBALL_DIR TARBALL_NAME=out/$TARBALL_NAME SKIP_VERSION_CHECK=1
+  artifacts:
+    paths:
+      - "out/*.tar.gz"
 
 container_scanning:
   stage: test
@@ -201,7 +220,7 @@ publish:
     entrypoint: [ "" ]
   script:
     - crane auth login -u $PUBLISH_REGISTRY_USER -p $PUBLISH_REGISTRY_PASSWORD $PUBLISH_REGISTRY
-    - crane copy --platform linux/amd64 ${CSI_PLUGIN_IMAGE} ${PUBLISH_REGISTRY}/amd64/linstor-csi:${TAG}
-    - crane copy --platform linux/s390x ${CSI_PLUGIN_IMAGE} ${PUBLISH_REGISTRY}/s390x/linstor-csi:${TAG}
-    - crane tag ${PUBLISH_REGISTRY}/amd64/linstor-csi:${TAG} latest
-    - crane tag ${PUBLISH_REGISTRY}/s390x/linstor-csi:${TAG} latest
+    - crane copy --platform linux/amd64 ${CSI_PLUGIN_IMAGE} ${PUBLISH_REGISTRY}/amd64/linstor-csi:${CONTAINER_TAG}
+    - crane copy --platform linux/s390x ${CSI_PLUGIN_IMAGE} ${PUBLISH_REGISTRY}/s390x/linstor-csi:${CONTAINER_TAG}
+    - crane tag ${PUBLISH_REGISTRY}/amd64/linstor-csi:${CONTAINER_TAG} latest
+    - crane tag ${PUBLISH_REGISTRY}/s390x/linstor-csi:${CONTAINER_TAG} latest

@@ -6,8 +6,17 @@ REGISTRY := $(REGISTRY)/$(ARCH)
 endif
 SEMVER ?= 0.0.0+$(shell git rev-parse --short HEAD)
 TAG ?= latest
+BASE ?= 0.0.0
+BUILD ?= alpha
+BUILD_NR ?= 1
+PKG_NR ?= 1
 NOCACHE ?= false
 REPO_SOURCE ?= centos:8
+
+TARBALL_DIR ?= $(shell eval $$(lbvers.py print --project $(PROJECT) --base $(BASE) --build $(BUILD) --build-nr $(BUILD_NR) --pkg-nr $(PKG_NR)) && echo $$TARBALL_DIR)
+TARBALL_NAME ?= $(shell eval $$(lbvers.py print --project $(PROJECT) --base $(BASE) --build $(BUILD) --build-nr $(BUILD_NR) --pkg-nr $(PKG_NR)) && echo $$TARBALL_NAME)
+SRC = $(PROJECT)/LICENSE $(PROJECT)/README.md $(PROJECT)/go.mod $(PROJECT)/go.sum $(shell find $(PROJECT) -name '*.go')
+VENDOR_SRC = $(addprefix build/,$(SRC))
 
 help:
 	@echo "Useful targets: 'update', 'upload'"
@@ -30,3 +39,16 @@ prepare-release:
 test/bin:
 	cd $(PROJECT) ; CGO_ENABLED=0 go test -v -a -ldflags '-extldflags "-static"' -o $(abspath $@)/sanity -c ./pkg/driver
 	CGO_ENABLED=0 go build -v -a -ldflags '-extldflags "-static"' -o $(abspath $@)/e2e ./cmd/linstor-csi-e2e-test
+
+tar: check_version $(TARBALL_NAME)
+
+$(TARBALL_NAME): $(VENDOR_SRC)
+	cd build/$(PROJECT) ; go mod vendor
+	tar -cvzf $@ --transform=s%build/$(PROJECT)%$(TARBALL_DIR)% build/$(PROJECT)/
+
+$(VENDOR_SRC): build/$(PROJECT)/%: $(PROJECT)/%
+	mkdir -p "$$(dirname "$@")"
+	cp -av "$^" "$@"
+
+check_version:
+	[ -n "$(SKIP_VERSION_CHECK)" ] || lbvers.py check --base $(BASE) --build $(BUILD) --build-nr $(BUILD_NR) --pkg-nr $(PKG_NR)
