@@ -26,7 +26,7 @@ prepare:
     - . .ci-build.env
     - lbvers.py print --base $BASE --build $BUILD --build-nr $BUILD_NR --project linstor-csi >> .ci-build.env
     - if [ "$BUILD" = "final" ]; then
-    -   lbvers.py check --base $BASE --build $BUILD --build-nr $BUILD_NR --rpm-spec linstor-csi.spec
+    -   lbvers.py check --base $BASE --build $BUILD --build-nr $BUILD_NR --rpm-spec linstor-csi.spec --debian-changelog debian/changelog
     - fi
   artifacts:
     reports:
