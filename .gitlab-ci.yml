@@ -124,11 +124,10 @@ make-tar:
     - if: $CI_COMMIT_TAG
   image: golang:1
   script:
-    - mkdir out
-    - make tar BASE=$BASE BUILD=$BUILD BUILD_NR=$BUILD_NR TARBALL_DIR=$TARBALL_DIR TARBALL_NAME=out/$TARBALL_NAME SKIP_VERSION_CHECK=1
+    - make tar debsrc BASE=$BASE BUILD=$BUILD BUILD_NR=$BUILD_NR TARBALL_DIR=$TARBALL_DIR TARBALL_NAME=$TARBALL_NAME SKIP_VERSION_CHECK=1
   artifacts:
     paths:
-      - "out/*.tar.gz"
+      - "out/"
 
 container_scanning:
   stage: test
