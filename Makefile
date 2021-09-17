@@ -13,17 +13,14 @@ PKG_NR ?= 1
 NOCACHE ?= false
 REPO_SOURCE ?= centos:8
 
-OUTDIR = ./out
+OUTDIR = out
 
-TARBALL_DIR ?= $(shell eval $$(lbvers.py print --project $(PROJECT) --base $(BASE) --build $(BUILD) --build-nr $(BUILD_NR) --pkg-nr $(PKG_NR)) && echo $$TARBALL_DIR)
-TARBALL_NAME ?= $(shell eval $$(lbvers.py print --project $(PROJECT) --base $(BASE) --build $(BUILD) --build-nr $(BUILD_NR) --pkg-nr $(PKG_NR)) && echo $$TARBALL_NAME)
-DEB_TARBALL_NAME ?= $(patsubst $(PROJECT)-%.tar.gz,$(PROJECT)_%.orig.tar.gz,$(TARBALL_NAME))
+TARBALL_DIR ?= $(PROJECT)-$(SEMVER)
 
-SRC = $(PROJECT)/LICENSE $(PROJECT)/README.md $(PROJECT)/go.mod $(PROJECT)/go.sum $(shell find $(PROJECT) -name '*.go'  -type f)
-VENDOR_SRC = $(addprefix build/,$(SRC))
+SRC = $(shell find $(PROJECT) -name '*.go') $(PROJECT)/go.mod $(PROJECT)/go.sum
+BINS = $(addprefix $(OUTDIR)/bin/linstor-csi-,$(ARCH))
 
-DEB_SRC = $(shell find debian -type f)
-DEB_SRC_DST = $(addprefix $(OUTDIR)/$(TARBALL_DIR)/,$(DEB_SRC))
+PKG_SRC = linstor-csi.spec $(shell find ./debian -type f) PKG_README.md Makefile LICENSE
 
 help:
 	@echo "Useful targets: 'update', 'upload'"
@@ -47,29 +44,13 @@ test/bin:
 	cd $(PROJECT) ; CGO_ENABLED=0 go test -v -a -ldflags '-extldflags "-static"' -o $(abspath $@)/sanity -c ./pkg/driver
 	CGO_ENABLED=0 go build -v -a -ldflags '-extldflags "-static"' -o $(abspath $@)/e2e ./cmd/linstor-csi-e2e-test
 
-	mkdir -p $@
+bin-release: $(OUTDIR)/$(TARBALL_DIR).tar.gz
 
-$(OUTDIR)/$(DEB_TARBALL_NAME): $(OUTDIR)/$(TARBALL_NAME)
-	mkdir -p "$$(dirname "$@")"
-	ln -snf ./$(TARBALL_NAME) $@
+$(BINS): $(OUTDIR)/bin/linstor-csi-%:
+	cd $(PROJECT) ; CGO_ENABLED=0 GOARCH=$* go build -v -a -o ../$@ -ldflags '-X github.com/piraeusdatastore/linstor-csi/pkg/driver.Version=$(SEMVER) -extldflags -static' -gcflags all=-trimpath=. --asmflags all=-trimpath=. ./cmd/linstor-csi
 
-tar: check_version $(OUTDIR)/$(TARBALL_NAME)
+$(OUTDIR)/$(TARBALL_DIR).tar.gz: $(BINS) $(PKG_SRC)
+	tar -cvzf $@ --transform=s%$(OUTDIR)/bin/%% --transform=s%%$(TARBALL_DIR)/% --show-transformed $^
 
-debsrc: check_version $(OUTDIR)/$(DEB_TARBALL_NAME) $(DEB_SRC_DST) $(OUTDIR)/$(DEB_TARBALL_NAME)
-	tar -xf $(OUTDIR)/$(DEB_TARBALL_NAME) -C $(OUTDIR)
-
-$(DEB_SRC_DST): $(OUTDIR)/$(TARBALL_DIR)/%: %
-	mkdir -p "$$(dirname "$@")"
-	cp -av "$^" "$@"
-
-$(OUTDIR)/$(TARBALL_NAME): $(VENDOR_SRC)
-	mkdir -p "$$(dirname "$@")"
-	cd build/$(PROJECT) ; go mod vendor
-	tar -cvzf $@ --transform=s%build/$(PROJECT)%$(TARBALL_DIR)% build/$(PROJECT)/
-
-$(VENDOR_SRC): build/$(PROJECT)/%: $(PROJECT)/%
-	mkdir -p "$$(dirname "$@")"
-	cp -av "$^" "$@"
-
-check_version:
-	[ -n "$(SKIP_VERSION_CHECK)" ] || lbvers.py check --base $(BASE) --build $(BUILD) --build-nr $(BUILD_NR) --pkg-nr $(PKG_NR)
+clean:
+	rm -rf $(OUTDIR)/*

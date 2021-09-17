@@ -12,5 +12,6 @@ Build + package [linstor-csi] in a Docker image.
    ```
    make prepare-release SEMVER=<version>
    ```
-3. `git commit` + `git tag`
-4. push master + tag to github
+3. Add changelog entries [here](./debian/changelog) and [here](./linstor-csi.spec).
+4. `git commit` + `git tag`
+5. push master + tag to gitlab

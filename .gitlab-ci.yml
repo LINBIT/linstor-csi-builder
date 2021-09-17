@@ -7,7 +7,7 @@ stages:
 variables:
   VIRTER_VERSION: v0.12.0
   VMSHED_VERSION: v0.12.0
-  BUILD_HELPERS_VERSION: 0ae7446fe57e1589981c428c21304e2a464004ce
+  BUILD_HELPERS_VERSION: dfbf85c26dd39ad1a88807b01fda1dc1d536abbb
 
 prepare:
   image: nexus.at.linbit.com:5000/build-helpers:${BUILD_HELPERS_VERSION}
@@ -22,12 +22,9 @@ prepare:
     # git describe does not need the submodule
     GIT_SUBMODULE_STRATEGY: none
   script:
-    - semver-from-git.py print-env > .ci-build.env
-    - . .ci-build.env
-    - lbvers.py print --base $BASE --build $BUILD --build-nr $BUILD_NR --project linstor-csi >> .ci-build.env
-    - if [ "$BUILD" = "final" ]; then
-    -   lbvers.py check --base $BASE --build $BUILD --build-nr $BUILD_NR --rpm-spec linstor-csi.spec --debian-changelog debian/changelog
-    - fi
+    - SEMVER="$(semver-from-git.py)"
+    - echo "SEMVER=${SEMVER}" >> .ci-build.env
+    - echo "TAG=v${SEMVER/+/-}" >> .ci-build.env
   artifacts:
     reports:
       dotenv: .ci-build.env
@@ -92,8 +89,8 @@ build:
     # Use NOCACHE=true for release builds
     - if [ -n "${CI_COMMIT_TAG}" ]; then NOCACHE=true ; else NOCACHE=false ; fi
     - docker login -u ${LINBIT_REGISTRY_USER} -p ${LINBIT_REGISTRY_PASSWORD} ${LINBIT_DOCKER_REGISTRY}
-    - docker buildx build --platform linux/amd64,linux/s390x --build-arg=REPO_SOURCE=${LINBIT_DOCKER_REGISTRY}/rhel-container-secrets:latest --pull --push -t "${LINBIT_DOCKER_REGISTRY}/linstor-csi:${CONTAINER_TAG}" --no-cache="${NOCACHE}" .
-    - echo "CSI_PLUGIN_IMAGE=${LINBIT_DOCKER_REGISTRY}/linstor-csi:${CONTAINER_TAG}" > .build.env
+    - docker buildx build --platform linux/amd64,linux/s390x --build-arg=REPO_SOURCE=${LINBIT_DOCKER_REGISTRY}/rhel-container-secrets:latest --pull --push -t "${LINBIT_DOCKER_REGISTRY}/linstor-csi:${TAG}" --no-cache="${NOCACHE}" .
+    - echo "CSI_PLUGIN_IMAGE=${LINBIT_DOCKER_REGISTRY}/linstor-csi:${TAG}" > .build.env
   artifacts:
     reports:
       dotenv:
@@ -124,7 +121,7 @@ make-tar:
     - if: $CI_COMMIT_TAG
   image: golang:1
   script:
-    - make tar debsrc BASE=$BASE BUILD=$BUILD BUILD_NR=$BUILD_NR TARBALL_DIR=$VERSIONED_DIR TARBALL_NAME=$VERSIONED_DIR.tar.gz SKIP_VERSION_CHECK=1
+    - make bin-release ARCH="amd64 arm64 s390x ppc64le" SKIP_VERSION_CHECK=1 SEMVER=$SEMVER
   artifacts:
     paths:
       - "out/"
@@ -219,7 +216,7 @@ publish:
     entrypoint: [ "" ]
   script:
     - crane auth login -u $PUBLISH_REGISTRY_USER -p $PUBLISH_REGISTRY_PASSWORD $PUBLISH_REGISTRY
-    - crane copy --platform linux/amd64 ${CSI_PLUGIN_IMAGE} ${PUBLISH_REGISTRY}/amd64/linstor-csi:${CONTAINER_TAG}
-    - crane copy --platform linux/s390x ${CSI_PLUGIN_IMAGE} ${PUBLISH_REGISTRY}/s390x/linstor-csi:${CONTAINER_TAG}
-    - crane tag ${PUBLISH_REGISTRY}/amd64/linstor-csi:${CONTAINER_TAG} latest
-    - crane tag ${PUBLISH_REGISTRY}/s390x/linstor-csi:${CONTAINER_TAG} latest
+    - crane copy --platform linux/amd64 ${CSI_PLUGIN_IMAGE} ${PUBLISH_REGISTRY}/amd64/linstor-csi:${TAG}
+    - crane copy --platform linux/s390x ${CSI_PLUGIN_IMAGE} ${PUBLISH_REGISTRY}/s390x/linstor-csi:${TAG}
+    - crane tag ${PUBLISH_REGISTRY}/amd64/linstor-csi:${TAG} latest
+    - crane tag ${PUBLISH_REGISTRY}/s390x/linstor-csi:${TAG} latest

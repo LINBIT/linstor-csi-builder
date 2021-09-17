@@ -2,20 +2,14 @@ Source: linstor-csi
 Maintainer: LINBIT HA Solutions GmbH <drbd-dev@lists.linbit.com>
 Uploaders: Moritz "WanzenBug" Wanzenboeck <moritz.wanzenboeck@linbit.com>
 Section: admin
-Testsuite: autopkgtest-pkg-go
 Priority: optional
-Build-Depends: debhelper-compat (= 13),
-               dh-golang,
-               golang-any (>= 2:1.13),
-Standards-Version: 4.5.0
+Build-Depends: debhelper (>= 9)
+Standards-Version: 3.9.8
 Homepage: https://github.com/piraeusdatastore/linstor-csi
 Rules-Requires-Root: no
 
 Package: linstor-csi
 Architecture: any
-Depends: ${misc:Depends},
-         ${shlibs:Depends}
-Built-Using: ${misc:Built-Using}
 Description: Driver implementing the Container Storage Interface (CSI)
  specification for the LINSTOR software defined storage platform.
  .
