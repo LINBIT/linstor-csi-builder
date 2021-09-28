@@ -7,6 +7,7 @@ endif
 SEMVER ?= 0.0.0+$(shell git rev-parse --short HEAD)
 TAG ?= latest
 NOCACHE ?= false
+REPO_SOURCE ?= centos:8
 
 help:
 	@echo "Useful targets: 'update', 'upload'"
@@ -15,7 +16,7 @@ all: update upload
 
 .PHONY: update
 update: Dockerfile
-	docker build --build-arg=SEMVER=$(SEMVER) --build-arg=ARCH=$(ARCH) --no-cache=$(NOCACHE) -t $(PROJECT):$(TAG) .
+	docker buildx build --load --build-arg=REPO_SOURCE=$(REPO_SOURCE) --build-arg=SEMVER=$(SEMVER) --build-arg=ARCH=$(ARCH) --no-cache=$(NOCACHE) -t $(PROJECT):$(TAG) .
 
 .PHONY: upload
 upload:
