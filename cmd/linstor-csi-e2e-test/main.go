@@ -1,18 +1,11 @@
 package main
 
 import (
-	"encoding/json"
-	"encoding/xml"
 	"flag"
 	"fmt"
-	"log"
-	"os"
-	"strings"
 	"testing"
 
 	"github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/config"
-	"github.com/onsi/ginkgo/reporters"
 	"github.com/onsi/gomega"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -32,37 +25,26 @@ var (
 type linstorDriver struct {
 }
 
-// Returns the SnapshotClass to use during testing.
+// GetSnapshotClass returns the SnapshotClass to use during testing.
 func (l linstorDriver) GetSnapshotClass(config *storageframework.PerTestConfig, parameters map[string]string) *unstructured.Unstructured {
 	ns := config.Framework.Namespace.Name
-	name := fmt.Sprintf("linstor-%s-sc", config.Prefix)
 
-	return utils.GenerateSnapshotClassSpec("linstor.csi.linbit.com", parameters, ns, name)
+	return utils.GenerateSnapshotClassSpec("linstor.csi.linbit.com", parameters, ns)
 }
 
-// Returns the StorageClass to use for DynamicPV testing. Most k8s related parameters (fs- vs. block-mode, fs-type, etc...)
-// will be set by the test itself, just set the LINSTOR related things.
+// GetDynamicProvisionStorageClass returns the StorageClass to use for DynamicPV testing.
+//
+// Most k8s related parameters (fs- vs. block-mode, fs-type, etc...) will be set by the test itself,
+// just set the LINSTOR related things.
 func (l *linstorDriver) GetDynamicProvisionStorageClass(config *storageframework.PerTestConfig, fsType string) *storagev1.StorageClass {
 	ns := config.Framework.Namespace.Name
-	name := fmt.Sprintf("linstor-%s-sc", config.Prefix)
 	placementCount := fmt.Sprintf("%d", replicas)
-	allowRemoteVolumeAccess := "true"
-	bindingMode := storagev1.VolumeBindingImmediate
-
-	if config.Framework.BaseName == "topology" {
-		placementCount = "1"
-		allowRemoteVolumeAccess = "false"
-	}
-
-	if config.Framework.BaseName == "capacity" {
-		bindingMode = storagev1.VolumeBindingWaitForFirstConsumer
-	}
+	bindingMode := storagev1.VolumeBindingWaitForFirstConsumer
 
 	params := map[string]string{
 		"placementCount":            placementCount,
-		"allowRemoteVolumeAccess":   allowRemoteVolumeAccess,
+		"allowRemoteVolumeAccess":   "false",
 		"storagePool":               linstorStoragePool,
-		"resourceGroup":             name,
 		"csi.storage.k8s.io/fstype": fsType,
 	}
 
@@ -71,7 +53,7 @@ func (l *linstorDriver) GetDynamicProvisionStorageClass(config *storageframework
 	return sc
 }
 
-// Get a description of the driver to test.
+// GetDriverInfo gets a description of the driver to test.
 func (l *linstorDriver) GetDriverInfo() *storageframework.DriverInfo {
 	return &storageframework.DriverInfo{
 		Name:        "linstor-csi",
@@ -90,9 +72,7 @@ func (l *linstorDriver) GetDriverInfo() *storageframework.DriverInfo {
 		// Random set of mount options we may or may not support
 		SupportedMountOption: sets.NewString("noatime", "discard"),
 		TopologyKeys: []string{
-			"linbit.com/hostname",
-			"linbit.com/sp-DfltDisklessStorPool",
-			"linbit.com/sp-" + linstorStoragePool,
+			"topology.kubernetes.io/zone",
 		},
 		Capabilities: map[storageframework.Capability]bool{
 			storageframework.CapPersistence:         true,
@@ -104,6 +84,7 @@ func (l *linstorDriver) GetDriverInfo() *storageframework.DriverInfo {
 			storageframework.CapMultiPODs:           true,
 			storageframework.CapControllerExpansion: true,
 			storageframework.CapNodeExpansion:       true,
+			storageframework.CapOnlineExpansion:     true,
 			storageframework.CapTopology:            true,
 			storageframework.CapCapacity:            true,
 		},
@@ -140,10 +121,10 @@ var (
 func main() {
 	framework.RegisterCommonFlags(flag.CommandLine)
 	framework.RegisterClusterFlags(flag.CommandLine)
-	framework.AfterReadingAllFlags(&framework.TestContext)
 	flag.StringVar(&linstorStoragePool, "linstor-csi-e2e.storage-pool", "e2epool", "set the LINSTOR storage pool to use for testing")
 	flag.IntVar(&replicas, "linstor-csi-e2e.volume-replicas", 2, "set the number of volume replicas LINSTOR should create")
 	flag.Parse()
+	framework.AfterReadingAllFlags(&framework.TestContext)
 
 	// Register our test suite with the ginkgo test runner. Taken from:
 	// https://github.com/kubernetes/kubernetes/blob/v1.21.1/test/e2e/storage/csi_volumes.go#L35
@@ -154,38 +135,6 @@ func main() {
 		})
 	})
 
-
 	gomega.RegisterFailHandler(ginkgo.Fail)
 	ginkgo.RunSpecs(&testing.T{}, "CSI Suite")
-
-	if config.DefaultReporterConfig.ReportFile != "" {
-		xmlReportFile, err := os.Open(config.DefaultReporterConfig.ReportFile)
-		if err != nil {
-			log.Fatalf("failed to open xml report: %v", err)
-		}
-
-		defer xmlReportFile.Close()
-		decoder := xml.NewDecoder(xmlReportFile)
-
-		var testsuite reporters.JUnitTestSuite
-		err = decoder.Decode(&testsuite)
-		if err != nil {
-			log.Fatalf("failed to decode xml report: %v", err)
-		}
-
-		reportFilenameBase := strings.TrimSuffix(config.DefaultReporterConfig.ReportFile, ".xml")
-		jsonReportFile, err := os.Create(reportFilenameBase + ".json")
-		if err != nil {
-			log.Fatalf("failed to create json report: %v", err)
-		}
-
-		defer jsonReportFile.Close()
-
-		encoder := json.NewEncoder(jsonReportFile)
-		encoder.SetIndent("", "  ")
-		err = encoder.Encode(testsuite)
-		if err != nil {
-			log.Fatalf("failed to write json report: %v", err)
-		}
-	}
 }
