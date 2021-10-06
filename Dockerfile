@@ -4,7 +4,7 @@ FROM --platform=$TARGETPLATFORM $REPO_SOURCE as repo-source
 
 FROM --platform=$BUILDPLATFORM golang:1.17 as builder
 ARG TARGETARCH
-ARG SEMVER=0.15.0
+ARG SEMVER=0.15.1
 
 WORKDIR /buildroot
 COPY linstor-csi /buildroot
@@ -22,7 +22,7 @@ RUN --mount=type=bind,from=repo-source,source=/run/secrets,target=/run/secrets \
   && microdnf install e2fsprogs xfsprogs util-linux  \
   && microdnf clean all
 
-ARG SEMVER=0.15.0
+ARG SEMVER=0.15.1
 ARG RELEASE=1
 LABEL name="LINSTOR CSI driver" \
       vendor="LINBIT" \
