@@ -1,6 +1,9 @@
 test_suite_file = "test/sanity.toml"
 test_timeout = "10m"
-artifacts = ["/sanity-report.xml"]
+artifacts = [
+    "/sanity-report.xml",
+    "/var/log/journal",
+]
 
 [tests]
 [tests.sanity]

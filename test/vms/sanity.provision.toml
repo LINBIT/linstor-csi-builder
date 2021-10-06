@@ -1,6 +1,5 @@
 [values]
-LinstorVersion = "1.12.4-1"
-DRBDVersion = "9.1.2-1"
+LinstorRepo = ""
 
 [[steps]]
 [steps.shell]
@@ -13,15 +12,13 @@ apt-get install -y wget ca-certificates gnupg2 netcat-openbsd rsync
 
 # linstor
 wget -O- https://packages.linbit.com/package-signing-pubkey.asc | apt-key add -
-echo "deb http://packages.linbit.com/piraeus buster drbd-9" > /etc/apt/sources.list.d/linbit.list
+echo "deb $LINSTOR_REPO focal drbd-9" > /etc/apt/sources.list.d/linbit.list
 apt-get update
-apt-get install -y linstor-controller=$LINSTOR_VERSION linstor-satellite=$LINSTOR_VERSION linstor-common=$LINSTOR_VERSION linstor-client drbd-dkms drbd-utils lvm2 linux-headers-`uname -r`
+apt-get install -y linstor-controller linstor-satellite linstor-client drbd-module-`uname -r` drbd-utils lvm2
 apt-get clean
 
-systemctl enable linstor-controller
-
-dkms install drbd/$DRBD_VERSION
+echo "global { usage-count no; }" > /etc/drbd.d/global_common.conf
+mkdir -p /var/log/journal
 """
 [steps.shell.env]
-LINSTOR_VERSION = "{{ .LinstorVersion }}"
-DRBD_VERSION = "{{ .DRBDVersion }}"
+LINSTOR_REPO = "{{ .LinstorRepo }}"
