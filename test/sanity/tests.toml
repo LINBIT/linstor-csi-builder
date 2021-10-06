@@ -1,0 +1,12 @@
+test_suite_file = "run.toml"
+test_timeout = "15m"
+artifacts = [
+    "/sanity-report.xml",
+    "/var/log/journal",
+    "/var/log/linstor-controller",
+    "/var/log/linstor-satellite",
+]
+
+[tests]
+[tests.sanity]
+vms = [1]

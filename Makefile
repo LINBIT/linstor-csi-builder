@@ -39,10 +39,8 @@ upload:
 prepare-release:
 	sed -i "s/ARG SEMVER=.*/ARG SEMVER=$(SEMVER)/" Dockerfile
 
-.PHONY: test/bin
-test/bin:
-	cd $(PROJECT) ; CGO_ENABLED=0 go test -v -a -ldflags '-extldflags "-static"' -o $(abspath $@)/sanity -c ./pkg/driver
-	CGO_ENABLED=0 go build -v -a -ldflags '-extldflags "-static"' -o $(abspath $@)/e2e ./cmd/linstor-csi-e2e-test
+out/test/csi-sanity-test: $(shell find ./linstor-csi -type f -name "*.go") ./linstor-csi/go.mod ./linstor-csi/go.sum
+	cd linstor-csi && CGO_ENABLED=0 go test --ldflags '-extldflags "-static"' -gcflags all=-trimpath=. --asmflags all=-trimpath=. -o ../out/test/csi-sanity-test -c ./pkg/driver
 
 bin-release: $(OUTDIR)/$(TARBALL_DIR).tar.gz
 

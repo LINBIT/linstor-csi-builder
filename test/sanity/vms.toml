@@ -1,3 +1,5 @@
 [[vms]]
-base_image = "linstor-csi-sanity-test-vm"
+vcpus = 4
+memory = "8G"
+base_image = "ubuntu-focal"
 disks = ["name=sanity-test-data,size=20G,bus=virtio"]

@@ -7,10 +7,12 @@ stages:
 variables:
   VIRTER_VERSION: v0.14.3
   VMSHED_VERSION: v0.14.0
+  CREATE_K8S_TEST_CONFIG: centralize-k8s-setup
+  E2E_BASE_IMAGE: centos-8
   BUILD_HELPERS_VERSION: dfbf85c26dd39ad1a88807b01fda1dc1d536abbb
 
 prepare:
-  image: nexus.at.linbit.com:5000/build-helpers:${BUILD_HELPERS_VERSION}
+  image: ${LINBIT_DOCKER_REGISTRY}/build-helpers:${BUILD_HELPERS_VERSION}
   stage: prepare
   rules:
     - if: $CI_MERGE_REQUEST_ID
@@ -29,51 +31,13 @@ prepare:
     - ci_prepare_tools
     - ci_fetch_binary virter virter-$VIRTER_VERSION https://github.com/LINBIT/virter/releases/download/$VIRTER_VERSION/virter-linux-amd64
     - ci_fetch_binary vmshed vmshed-$VMSHED_VERSION https://github.com/LINBIT/vmshed/releases/download/$VMSHED_VERSION/vmshed-linux-amd64
+    - ci_fetch_binary create-k8s-test-configs create-k8s-test-configs-$CREATE_K8S_TEST_CONFIG $LINBIT_REGISTRY_URL/repository/tools/create-k8s-test-configs:$CREATE_K8S_TEST_CONFIG
   artifacts:
     paths:
       - bin
       - download
     reports:
       dotenv: .ci-build.env
-
-.prepare-vm:
-  stage: build
-  rules:
-    - if: $CI_MERGE_REQUEST_ID
-    - if: $CI_COMMIT_BRANCH == 'master'
-    - if: $CI_COMMIT_TAG
-  tags:
-    - libvirt
-  cache:
-    paths:
-      - download
-  script:
-    - export PATH=$CI_PROJECT_DIR/bin:$PATH
-    - ln -snf $DOCKER_AUTH_CONFIG_FILE $HOME/.docker/config.json
-    - cd test/vms
-    - >
-      virter image build
-      nexus.at.linbit.com:5000/vm/$BASE:latest
-      nexus.at.linbit.com:5000/linstor-csi-builder/vm/$NAME:$CI_COMMIT_REF_SLUG
-      --pull-policy=Always
-      --push
-      --build-id "$(git rev-list -1 --abbrev-commit HEAD ${NAME}.provision.toml)"
-      -p ${NAME}.provision.toml
-      ${EXTRA_BUILD_ARGS}
-
-prepare-sanity-vm:
-  extends: .prepare-vm
-  variables:
-    NAME: sanity
-    BASE: ubuntu-focal
-    EXTRA_BUILD_ARGS: "--set values.LinstorRepo=$LINBIT_REGISTRY_URL/repository/packages-linbit-com"
-
-prepare-e2e-vm:
-  extends: .prepare-vm
-  variables:
-    NAME: e2e
-    BASE: centos-7
-    EXTRA_BUILD_ARGS: "--set values.DockerRegistryMirror=$DOCKER_REGISTRY_MIRROR"
 
 build:
   stage: build
@@ -90,14 +54,14 @@ build:
     # Use NOCACHE=true for release builds
     - if [ -n "${CI_COMMIT_TAG}" ]; then NOCACHE=true ; else NOCACHE=false ; fi
     - docker login -u ${LINBIT_REGISTRY_USER} -p ${LINBIT_REGISTRY_PASSWORD} ${LINBIT_DOCKER_REGISTRY}
-    - docker buildx build --platform linux/amd64,linux/s390x --build-arg=REPO_SOURCE=${LINBIT_DOCKER_REGISTRY}/rhel-container-secrets:latest --pull --push -t "${LINBIT_DOCKER_REGISTRY}/linstor-csi:${TAG}" --no-cache="${NOCACHE}" .
+    - docker buildx build --platform ${PUBLISH_PLATFORMS} --build-arg=REPO_SOURCE=${LINBIT_DOCKER_REGISTRY}/rhel-container-secrets:latest --pull --push -t "${LINBIT_DOCKER_REGISTRY}/linstor-csi:${TAG}" --no-cache="${NOCACHE}" .
     - echo "CSI_PLUGIN_IMAGE=${LINBIT_DOCKER_REGISTRY}/linstor-csi:${TAG}" > .build.env
   artifacts:
     reports:
       dotenv:
         - .build.env
 
-build-tests:
+build-sanity-test:
   stage: build
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
@@ -107,10 +71,11 @@ build-tests:
     - if: $CI_COMMIT_TAG
   image: golang:1
   script:
-    - make test/bin
+    - cd linstor-csi
+    - CGO_ENABLED=0 go test --ldflags '-extldflags "-static"' -gcflags all=-trimpath=. --asmflags all=-trimpath=. -o ../out/test/csi-sanity-test -c ./pkg/driver
   artifacts:
     paths:
-      - test/bin
+      - out/test/csi-sanity-test
 
 make-tar:
   stage: build
@@ -125,7 +90,9 @@ make-tar:
     - make bin-release ARCH="amd64 arm64 s390x ppc64le" SKIP_VERSION_CHECK=1 SEMVER=$SEMVER
   artifacts:
     paths:
-      - "out/"
+      - out/
+    exclude:
+      - out/test
 
 container_scanning:
   stage: test
@@ -135,7 +102,7 @@ container_scanning:
     - if: $CI_COMMIT_TAG
   image:
     name: docker.io/aquasec/trivy:latest
-    entrypoint: [""]
+    entrypoint: [ "" ]
   variables:
     # No need to clone the repo, we exclusively work on artifacts.  See
     # https://docs.gitlab.com/ee/ci/runners/README.html#git-strategy
@@ -166,24 +133,35 @@ container_scanning:
     paths:
       - download
   script:
-    - export PATH=$CI_PROJECT_DIR/bin:$PATH
-    - virter image pull linstor-csi-${NAME}-test-vm nexus.at.linbit.com:5000/linstor-csi-builder/vm/$NAME:$CI_COMMIT_REF_SLUG
+    -
+    -
     - vmshed --vms vms.${NAME}.toml --tests tests.${NAME}.toml ${VMSHED_ARGS}
   artifacts:
     name: ${NAME}-reports
+
+sanity-test:
+  stage: test
+  tags:
+    - libvirt
+  rules:
+    - if: $CI_MERGE_REQUEST_ID
+    - if: $CI_COMMIT_BRANCH == 'master'
+    - if: $CI_COMMIT_TAG
+  script:
+    - export PATH=$CI_PROJECT_DIR/bin:$PATH
+    - virter image pull ubuntu-focal $LINBIT_DOCKER_REGISTRY/vm/ubuntu-focal:latest
+    - vmshed --vms test/sanity/vms.toml --tests test/sanity/tests.toml --set values.LinbitPackageRepoLine="$LINBIT_REGISTRY_URL/repository/packages-linbit-com/staging focal drbd-9"
+  artifacts:
     paths:
       - tests-out/
     reports:
       junit:
         - tests-out/**/*.xml
 
-sanity-test:
-  extends: .vmtest
-  variables:
-    NAME: sanity
-
 e2e-test:
-  extends: .vmtest
+  stage: test
+  tags:
+    - libvirt
   rules:
     - if: $CI_MERGE_REQUEST_ID
       when: manual
@@ -195,9 +173,34 @@ e2e-test:
       when: manual
       allow_failure: true
   timeout: 5h
-  variables:
-    NAME: e2e
-    VMSHED_ARGS: --set values.LinstorCSIImage=${CSI_PLUGIN_IMAGE} --set values.DockerUsername=${TEST_DOCKER_USER} --set values.DockerPassword=${TEST_DOCKER_PASSWORD}
+  script:
+    - export PATH=$CI_PROJECT_DIR/bin:$PATH
+    - create-k8s-test-configs -stable-releases-to-check=1 -include-next=1 -base-image=$E2E_BASE_IMAGE
+    - virter image pull $E2E_BASE_IMAGE $LINBIT_DOCKER_REGISTRY/vm/$E2E_BASE_IMAGE:latest
+    - docker pull $LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/kubespray:$CREATE_K8S_TEST_CONFIG
+    - docker pull $LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/helm:$CREATE_K8S_TEST_CONFIG
+    - docker pull $LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/k8s-e2e-storage-tests:$CREATE_K8S_TEST_CONFIG
+    - |
+      cat <<EOF > csi-to-test.yml
+      csi:
+        pluginImage: $CSI_PLUGIN_IMAGE
+      EOF
+    - >
+      vmshed
+      --nvms $(( ${LINBIT_CI_MAX_CPUS:-20} / 3 ))
+      --set values.DrbdIoUser=$PUBLISH_REGISTRY_USER
+      --set values.DrbdIoPassword=$PUBLISH_REGISTRY_PASSWORD
+      --set values.VirterKubeSprayImage=$LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/kubespray:$CREATE_K8S_TEST_CONFIG
+      --set values.HelmImage=$LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/helm:$CREATE_K8S_TEST_CONFIG
+      --set values.E2eTestImage=$LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/k8s-e2e-storage-tests:$CREATE_K8S_TEST_CONFIG
+      --set values.LinstorValues=/virter/workspace/csi-to-test.yml
+  artifacts:
+    when: always
+    paths:
+      - tests-out/
+    reports:
+      junit:
+        - tests-out/log/*/e2e-report.xml
 
 publish:
   stage: publish
@@ -211,7 +214,8 @@ publish:
     entrypoint: [ "" ]
   script:
     - crane auth login -u $PUBLISH_REGISTRY_USER -p $PUBLISH_REGISTRY_PASSWORD $PUBLISH_REGISTRY
-    - crane copy --platform linux/amd64 ${CSI_PLUGIN_IMAGE} ${PUBLISH_REGISTRY}/amd64/linstor-csi:${TAG}
-    - crane copy --platform linux/s390x ${CSI_PLUGIN_IMAGE} ${PUBLISH_REGISTRY}/s390x/linstor-csi:${TAG}
-    - crane tag ${PUBLISH_REGISTRY}/amd64/linstor-csi:${TAG} latest
-    - crane tag ${PUBLISH_REGISTRY}/s390x/linstor-csi:${TAG} latest
+    - for PLATFORM in $(echo $PUBLISH_PLATFORMS | tr ',' '\n') ; do
+    - ARCH=${PLATFORM#*/}
+    - crane copy --platform $PLATFORM CSI_PLUGIN_IMAGE $PUBLISH_REGISTRY/$ARCH/linstor-csi:$TAG
+    - crane tag $PUBLISH_REGISTRY/$ARCH/linstor-csi:$TAG latest
+    - do

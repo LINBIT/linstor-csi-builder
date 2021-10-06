@@ -1,5 +1,0 @@
-[[vms]]
-vcpus = 4
-memory = "8G"
-base_image = "linstor-csi-e2e-test-vm"
-disks = ["name=sanity-test-data,size=20G,bus=virtio"]
