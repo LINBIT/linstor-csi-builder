@@ -16,7 +16,7 @@ all: update upload
 
 .PHONY: update
 update: Dockerfile
-	docker buildx build --load --build-arg=REPO_SOURCE=$(REPO_SOURCE) --build-arg=SEMVER=$(SEMVER) --build-arg=ARCH=$(ARCH) --no-cache=$(NOCACHE) -t $(PROJECT):$(TAG) .
+	docker buildx build --load --build-arg=REPO_SOURCE=$(REPO_SOURCE) --build-arg=SEMVER=$(SEMVER) --no-cache=$(NOCACHE) -t $(PROJECT):$(TAG) .
 
 .PHONY: upload
 upload:
