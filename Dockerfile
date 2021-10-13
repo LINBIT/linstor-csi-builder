@@ -6,6 +6,8 @@ FROM --platform=$BUILDPLATFORM golang:1.17 as builder
 
 WORKDIR /buildroot
 COPY linstor-csi/go.mod linstor-csi/go.sum /buildroot/
+
+ARG GOPROXY
 RUN go mod download
 
 COPY linstor-csi/ /buildroot/
