@@ -2,4 +2,4 @@
 autoPlace: "1"
 storagePool: sanity-test
 resourceGroup: sanity-test
-
+layerList: "storage"
