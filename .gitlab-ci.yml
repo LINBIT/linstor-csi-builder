@@ -214,9 +214,10 @@ publish:
     name: gcr.io/go-containerregistry/crane:debug
     entrypoint: [ "" ]
   script:
+    - mkdir -p $HOME/.docker
     - ln -snf $DOCKER_PUBLISH_AUTH_CONFIG_FILE $HOME/.docker/config.json
     - for PLATFORM in $(echo $PUBLISH_PLATFORMS | tr ',' '\n') ; do
     -   ARCH=${PLATFORM#*/}
-    -   crane copy --platform $PLATFORM CSI_PLUGIN_IMAGE $PUBLISH_REGISTRY/$ARCH/linstor-csi:$TAG
+    -   crane copy --platform $PLATFORM $CSI_PLUGIN_IMAGE $PUBLISH_REGISTRY/$ARCH/linstor-csi:$TAG
     -   crane tag $PUBLISH_REGISTRY/$ARCH/linstor-csi:$TAG latest
-    - do
+    - done
