@@ -1,5 +1,18 @@
+linstor-csi (0.16.0-1) experimental; urgency=medium
+
+  * Remove reliance on external LINSTOR properties for passing volume parameters
+
+ -- Moritz "WanzenBug" Wanzenböck <moritz.wanzenboeck@linbit.com>  Fri, 15 Oct 2021 11:34:27 +0000
+
+
+linstor-csi (0.15.0-1) experimental; urgency=medium
+
+  * New "AutoPlaceTopology" scheduler
+
+ -- Moritz "WanzenBug" Wanzenböck <moritz.wanzenboeck@linbit.com>  Thu, 23 Sep 2021 12:02:57 +0000
+
 linstor-csi (0.14.0-1) experimental; urgency=medium
 
   * Initial release
 
- -- Moritz "WanzenBug" Wanzenböck <moritz.wanzenboeck@linbit.com>  Wed, 15 Sep 2021 11:57:26 +0000
+ -- Moritz "WanzenBug" Wanzenböck <moritz.wanzenboeck@linbit.com>  Tue, 14 Sep 2021 11:57:26 +0000

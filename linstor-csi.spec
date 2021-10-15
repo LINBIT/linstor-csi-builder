@@ -35,5 +35,11 @@ install -m 0755 -vp linstor-csi %{buildroot}%{_bindir}/linstor-csi
 %{_bindir}/*
 
 %changelog
+* Fri Oct 15 2021 Moritz "WanzenBug" Wanzenböck <moritz.wanzenboeck@linbit.com> - 0.16.0-1
+- Remove reliance on external LINSTOR properties for passing volume parameters
+
+* Thu Sep 23 2021 Moritz "WanzenBug" Wanzenböck <moritz.wanzenboeck@linbit.com> - 0.15.0-1
+- New "AutoPlaceTopology" scheduler
+
 * Tue Sep 14 2021 Moritz "WanzenBug" Wanzenböck <moritz.wanzenboeck@linbit.com> - 0.14.0-1
 - Initial package
