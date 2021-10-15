@@ -1,4 +1,4 @@
-Version: 0.14.1
+Version: 0.16.0
 
 %global common_description %{expand:
 Driver implementing the Container Storage Interface (CSI) specification for the LINSTOR software defined storage platform.
@@ -19,7 +19,7 @@ Source0: https://pkg.linbit.com/downloads/connectors/linstor-csi-%{version}.tar.
 %{common_description}
 
 %prep
-%setup -q -n %{name}-%{version}
+%setup -q -c -n linstor-csi-%{version}
 
 %build
 
