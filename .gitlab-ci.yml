@@ -180,7 +180,8 @@ e2e-test:
     - virter image pull $E2E_BASE_IMAGE $LINBIT_DOCKER_REGISTRY/vm/$E2E_BASE_IMAGE:latest
     - docker pull $LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/kubespray:$CREATE_K8S_TEST_CONFIG
     - docker pull $LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/helm:$CREATE_K8S_TEST_CONFIG
-    - docker pull $LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/k8s-e2e-storage-tests:$CREATE_K8S_TEST_CONFIG
+    - docker pull $LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/tests:$CREATE_K8S_TEST_CONFIG
+    - cd virter
     - |
       cat <<EOF > csi-to-test.yml
       csi:
@@ -189,19 +190,21 @@ e2e-test:
     - >
       vmshed
       --nvms $(( ${LINBIT_CI_MAX_CPUS:-20} / 3 ))
+      --torun k8s-e2e-storage
       --set values.DrbdIoUser=$PUBLISH_REGISTRY_USER
       --set values.DrbdIoPassword=$PUBLISH_REGISTRY_PASSWORD
       --set values.VirterKubeSprayImage=$LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/kubespray:$CREATE_K8S_TEST_CONFIG
       --set values.HelmImage=$LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/helm:$CREATE_K8S_TEST_CONFIG
-      --set values.E2eTestImage=$LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/k8s-e2e-storage-tests:$CREATE_K8S_TEST_CONFIG
+      --set values.TestImage=$LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/tests:$CREATE_K8S_TEST_CONFIG
       --set values.LinstorValues=/virter/workspace/csi-to-test.yml
   artifacts:
     when: always
     paths:
-      - tests-out/
+      - virter/tests-out/
     reports:
       junit:
-        - tests-out/log/*/e2e-report.xml
+        - virter/tests-out/test-results/*.xml
+        - virter/tests-out/log/**/*-report.xml
 
 publish:
   stage: publish
