@@ -121,24 +121,6 @@ container_scanning:
     paths:
       - container-scan.html
 
-.vmtest:
-  stage: test
-  tags:
-    - libvirt
-  rules:
-    - if: $CI_MERGE_REQUEST_ID
-    - if: $CI_COMMIT_BRANCH == 'master'
-    - if: $CI_COMMIT_TAG
-  cache:
-    paths:
-      - download
-  script:
-    -
-    -
-    - vmshed --vms vms.${NAME}.toml --tests tests.${NAME}.toml ${VMSHED_ARGS}
-  artifacts:
-    name: ${NAME}-reports
-
 sanity-test:
   stage: test
   tags:
@@ -176,7 +158,7 @@ e2e-test:
   timeout: 5h
   script:
     - export PATH=$CI_PROJECT_DIR/bin:$PATH
-    - create-k8s-test-configs -stable-releases-to-check=1 -include-next=1 -base-image=$E2E_BASE_IMAGE
+    - create-k8s-test-configs -stable-releases-to-check=4 -sparse=true -include-next=1 -base-image=$E2E_BASE_IMAGE
     - virter image pull $E2E_BASE_IMAGE $LINBIT_DOCKER_REGISTRY/vm/$E2E_BASE_IMAGE:latest
     - docker pull $LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/kubespray:$CREATE_K8S_TEST_CONFIG
     - docker pull $LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/helm:$CREATE_K8S_TEST_CONFIG
@@ -191,6 +173,7 @@ e2e-test:
       vmshed
       --nvms $(( ${LINBIT_CI_MAX_CPUS:-20} / 3 ))
       --torun k8s-e2e-storage
+      --variant k8s-backend
       --set values.DrbdIoUser=$PUBLISH_REGISTRY_USER
       --set values.DrbdIoPassword=$PUBLISH_REGISTRY_PASSWORD
       --set values.VirterKubeSprayImage=$LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/kubespray:$CREATE_K8S_TEST_CONFIG
