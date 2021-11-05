@@ -7,7 +7,7 @@ stages:
 variables:
   VIRTER_VERSION: v0.14.3
   VMSHED_VERSION: v0.14.0
-  CREATE_K8S_TEST_CONFIG: centralize-k8s-setup
+  K8S_TEST_VERSION: v1.0.0
   E2E_BASE_IMAGE: centos-8
   BUILD_HELPERS_VERSION: dfbf85c26dd39ad1a88807b01fda1dc1d536abbb
 
@@ -31,7 +31,7 @@ prepare:
     - ci_prepare_tools
     - ci_fetch_binary virter virter-$VIRTER_VERSION https://github.com/LINBIT/virter/releases/download/$VIRTER_VERSION/virter-linux-amd64
     - ci_fetch_binary vmshed vmshed-$VMSHED_VERSION https://github.com/LINBIT/vmshed/releases/download/$VMSHED_VERSION/vmshed-linux-amd64
-    - ci_fetch_binary create-k8s-test-configs create-k8s-test-configs-$CREATE_K8S_TEST_CONFIG $LINBIT_REGISTRY_URL/repository/tools/create-k8s-test-configs:$CREATE_K8S_TEST_CONFIG
+    - ci_fetch_binary create-k8s-test-configs create-k8s-test-configs-$K8S_TEST_VERSION $LINBIT_REGISTRY_URL/repository/tools/create-k8s-test-configs:$K8S_TEST_VERSION
   artifacts:
     paths:
       - bin
@@ -155,14 +155,14 @@ e2e-test:
     - if: $CI_COMMIT_TAG
       when: manual
       allow_failure: true
-  timeout: 5h
+  timeout: 8h
   script:
     - export PATH=$CI_PROJECT_DIR/bin:$PATH
-    - create-k8s-test-configs -stable-releases-to-check=4 -sparse=true -include-next=1 -base-image=$E2E_BASE_IMAGE
+    - create-k8s-test-configs -stable-releases-to-check=1 -include-next=1 -base-image=$E2E_BASE_IMAGE
     - virter image pull $E2E_BASE_IMAGE $LINBIT_DOCKER_REGISTRY/vm/$E2E_BASE_IMAGE:latest
-    - docker pull $LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/kubespray:$CREATE_K8S_TEST_CONFIG
-    - docker pull $LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/helm:$CREATE_K8S_TEST_CONFIG
-    - docker pull $LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/tests:$CREATE_K8S_TEST_CONFIG
+    - docker pull $LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/kubespray:$K8S_TEST_VERSION
+    - docker pull $LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/helm:$K8S_TEST_VERSION
+    - docker pull $LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/tests:$K8S_TEST_VERSION
     - cd virter
     - |
       cat <<EOF > csi-to-test.yml
@@ -176,9 +176,9 @@ e2e-test:
       --variant k8s-backend
       --set values.DrbdIoUser=$PUBLISH_REGISTRY_USER
       --set values.DrbdIoPassword=$PUBLISH_REGISTRY_PASSWORD
-      --set values.VirterKubeSprayImage=$LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/kubespray:$CREATE_K8S_TEST_CONFIG
-      --set values.HelmImage=$LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/helm:$CREATE_K8S_TEST_CONFIG
-      --set values.TestImage=$LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/tests:$CREATE_K8S_TEST_CONFIG
+      --set values.VirterKubeSprayImage=$LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/kubespray:$K8S_TEST_VERSION
+      --set values.HelmImage=$LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/helm:$K8S_TEST_VERSION
+      --set values.TestImage=$LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/tests:$K8S_TEST_VERSION
       --set values.LinstorValues=/virter/workspace/csi-to-test.yml
   artifacts:
     when: always
