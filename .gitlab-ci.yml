@@ -5,9 +5,9 @@ stages:
   - publish
 
 variables:
-  VIRTER_VERSION: v0.14.3
-  VMSHED_VERSION: v0.14.0
-  K8S_TEST_VERSION: v1.0.0
+  VIRTER_VERSION: v0.17.0
+  VMSHED_VERSION: v0.14.5
+  K8S_TEST_VERSION: v1.1.0
   E2E_BASE_IMAGE: centos-8
   BUILD_HELPERS_VERSION: dfbf85c26dd39ad1a88807b01fda1dc1d536abbb
 
@@ -160,7 +160,7 @@ e2e-test:
     - export PATH=$CI_PROJECT_DIR/bin:$PATH
     - create-k8s-test-configs -stable-releases-to-check=1 -include-next=1 -base-image=$E2E_BASE_IMAGE
     - virter image pull $E2E_BASE_IMAGE $LINBIT_DOCKER_REGISTRY/vm/$E2E_BASE_IMAGE:latest
-    - docker pull $LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/kubespray:$K8S_TEST_VERSION
+    - docker pull $LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/just-kubeadm:$K8S_TEST_VERSION
     - docker pull $LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/helm:$K8S_TEST_VERSION
     - docker pull $LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/tests:$K8S_TEST_VERSION
     - cd virter
@@ -176,7 +176,7 @@ e2e-test:
       --variant k8s-backend
       --set values.DrbdIoUser=$PUBLISH_REGISTRY_USER
       --set values.DrbdIoPassword=$PUBLISH_REGISTRY_PASSWORD
-      --set values.VirterKubeSprayImage=$LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/kubespray:$K8S_TEST_VERSION
+      --set values.JustKubeadmImage=${LINBIT_DOCKER_REGISTRY}/linstor-kubernetes-tests/just-kubeadm:$K8S_TEST_VERSION
       --set values.HelmImage=$LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/helm:$K8S_TEST_VERSION
       --set values.TestImage=$LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/tests:$K8S_TEST_VERSION
       --set values.LinstorValues=/virter/workspace/csi-to-test.yml
