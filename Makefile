@@ -38,6 +38,9 @@ upload:
 
 prepare-release:
 	sed -i "s/ARG SEMVER=.*/ARG SEMVER=$(SEMVER)/" Dockerfile
+	sed -i "s/Version: .*/Version: $(SEMVER)/" linstor-csi.spec
+	DEBFULLNAME='$(shell git config user.name)' DEBEMAIL='$(shell git config user.email)' dch --newversion $(SEMVER)-1 --distribution experimental "Upstream release $(shell git -C linstor-csi describe --match 'v*')"
+	rpmdev-bumpspec --new=$(SEMVER) -c "Upstream release $(shell git -C linstor-csi describe --match 'v*')" linstor-csi.spec
 
 out/test/csi-sanity-test: $(shell find ./linstor-csi -type f -name "*.go") ./linstor-csi/go.mod ./linstor-csi/go.sum
 	cd linstor-csi && CGO_ENABLED=0 go test --ldflags '-extldflags "-static"' -gcflags all=-trimpath=. --asmflags all=-trimpath=. -o ../out/test/csi-sanity-test -c ./pkg/driver
