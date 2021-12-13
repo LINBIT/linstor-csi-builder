@@ -1,4 +1,4 @@
-Version: 0.16.0
+Version: 0.17.0
 
 %global common_description %{expand:
 Driver implementing the Container Storage Interface (CSI) specification for the LINSTOR software defined storage platform.
@@ -35,6 +35,11 @@ install -m 0755 -vp linstor-csi %{buildroot}%{_bindir}/linstor-csi
 %{_bindir}/*
 
 %changelog
+* Tue Dec 14 2021 Moritz "WanzenBug" Wanzenböck <moritz.wanzenboeck@linbit.com> - 0.17.0-1
+- Resize volume when cloning or restoring from source
+- Fix bad ordering of LINSTOR resource creation, leading to inconsistent volumes
+- Allow fine grained placement control via new "allowRemoteVolumeAccess" options
+
 * Fri Oct 15 2021 Moritz "WanzenBug" Wanzenböck <moritz.wanzenboeck@linbit.com> - 0.16.0-1
 - Remove reliance on external LINSTOR properties for passing volume parameters
 

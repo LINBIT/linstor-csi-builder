@@ -1,3 +1,11 @@
+linstor-csi (0.17.0-1) experimental; urgency=medium
+
+  * Resize volume when cloning or restoring from source
+  * Fix bad ordering of LINSTOR resource creation, leading to inconsistent volumes
+  * Allow fine grained placement control via new "allowRemoteVolumeAccess" options
+
+ -- Moritz "WanzenBug" Wanzenböck <moritz.wanzenboeck@linbit.com>  Tue, 13 Dec 2021 09:09:21 +0000
+
 linstor-csi (0.16.0-1) experimental; urgency=medium
 
   * Remove reliance on external LINSTOR properties for passing volume parameters
