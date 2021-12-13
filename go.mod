@@ -2,14 +2,6 @@ module github.com/LINBIT/linstor-csi-builder
 
 go 1.16
 
-require (
-	github.com/onsi/ginkgo v1.14.0
-	github.com/onsi/gomega v1.10.1
-	k8s.io/api v0.22.1
-	k8s.io/apimachinery v0.22.1
-	k8s.io/kubernetes v1.22.1
-)
-
 replace (
 	k8s.io/api => k8s.io/api v0.22.1
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.22.1
