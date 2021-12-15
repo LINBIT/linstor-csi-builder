@@ -6,7 +6,7 @@ stages:
 
 variables:
   VIRTER_VERSION: v0.17.0
-  VMSHED_VERSION: v0.14.5
+  VMSHED_VERSION: v0.14.6
   K8S_TEST_VERSION: v1.1.0
   E2E_BASE_IMAGE: centos-8
   BUILD_HELPERS_VERSION: dfbf85c26dd39ad1a88807b01fda1dc1d536abbb
@@ -174,6 +174,8 @@ e2e-test:
       --nvms $(( ${LINBIT_CI_MAX_CPUS:-20} / 3 ))
       --torun k8s-e2e-storage
       --variant k8s-backend
+      --set values.DockerRegistryMirror=https://${DOCKER_REGISTRY_MIRROR}
+      --set values.DrbdRegistryMirror=https://${DRBD_REGISTRY_MIRROR}
       --set values.DrbdIoUser=$PUBLISH_REGISTRY_USER
       --set values.DrbdIoPassword=$PUBLISH_REGISTRY_PASSWORD
       --set values.JustKubeadmImage=${LINBIT_DOCKER_REGISTRY}/linstor-kubernetes-tests/just-kubeadm:$K8S_TEST_VERSION
