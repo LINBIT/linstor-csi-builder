@@ -24,15 +24,15 @@ Source0: https://pkg.linbit.com/downloads/connectors/linstor-csi-%{version}.tar.
 %build
 
 %install
-install -m 0755 -vd %{buildroot}%{_bindir}
-install -m 0755 -vp linstor-csi %{buildroot}%{_bindir}/linstor-csi
+install -m 0755 -vd %{buildroot}%{_sbindir}
+install -m 0755 -vp linstor-csi %{buildroot}%{_sbindir}/linstor-csi
 
 %check
 
 %files
 %license LICENSE
 %doc PKG_README.md
-%{_bindir}/*
+%{_sbindir}/linstor-csi
 
 %changelog
 * Tue Dec 14 2021 Moritz "WanzenBug" Wanzenböck <moritz.wanzenboeck@linbit.com> - 0.17.0-1
