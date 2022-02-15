@@ -1,6 +1,6 @@
 [values]
 LinbitSigningKey = "https://packages.linbit.com/package-signing-pubkey.asc"
-LinbitPackageRepoLine = "https://packages.linbit.com/piraeus buster drbd-9"
+LinbitPackageRepoLines = "deb https://packages.linbit.com/piraeus buster drbd-9"
 
 [[steps]]
 [steps.rsync]
@@ -18,7 +18,7 @@ script = """
 set -ex
 
 curl -fsSL "$LINBIT_SIGNING_KEY" | apt-key add -
-echo "deb $LINBIT_PACKAGE_REPO_LINE" > /etc/apt/sources.list.d/linbit.list
+echo "$LINBIT_PACKAGE_REPO_LINES" > /etc/apt/sources.list.d/linbit.list
 
 apt-get update
 if apt-cache show drbd-module-$(uname -r) 2>/dev/null ; then
@@ -55,4 +55,4 @@ linstor physical-storage create-device-pool --pool-name sanity --storage-pool sa
 """
 [steps.shell.env]
 LINBIT_SIGNING_KEY = "{{ .LinbitSigningKey }}"
-LINBIT_PACKAGE_REPO_LINE = "{{ .LinbitPackageRepoLine }}"
+LINBIT_PACKAGE_REPO_LINES = "{{ .LinbitPackageRepoLines }}"

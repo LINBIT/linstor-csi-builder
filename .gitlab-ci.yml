@@ -131,10 +131,14 @@ sanity-test:
     - if: $CI_MERGE_REQUEST_ID
     - if: $CI_COMMIT_BRANCH == 'master'
     - if: $CI_COMMIT_TAG
+  variables:
+    LINBIT_PACKAGE_REPO_LINES: |
+      deb $LINBIT_REGISTRY_URL/repository/packages-linbit-com focal drbd-9
+      deb $LINBIT_REGISTRY_URL/repository/packages-linbit-com/staging focal drbd-9
   script:
     - export PATH=$CI_PROJECT_DIR/bin:$PATH
     - virter image pull ubuntu-focal $LINBIT_DOCKER_REGISTRY/vm/ubuntu-focal:latest
-    - vmshed --vms test/sanity/vms.toml --tests test/sanity/tests.toml --set values.LinbitPackageRepoLine="$LINBIT_REGISTRY_URL/repository/packages-linbit-com/staging focal drbd-9"
+    - vmshed --vms test/sanity/vms.toml --tests test/sanity/tests.toml --set values.LinbitPackageRepoLines="$LINBIT_PACKAGE_REPO_LINES"
   artifacts:
     when: always
     paths:
