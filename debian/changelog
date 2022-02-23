@@ -1,3 +1,13 @@
+linstor-csi (0.18.0-1) experimental; urgency=medium
+
+  * Upstream release v0.18.0
+  * Optionally, allow using PVC name when available
+  * Create and restore snapshots of volumes to and from S3
+  * Support (some) differing parameters between original and cloned/restored volume
+  * CSI Spec 1.5.0
+
+ -- Moritz "WanzenBug" Wanzenböck <moritz.wanzenboeck@linbit.com>  Thu, 24 Feb 2022 11:49:08 +0100
+
 linstor-csi (0.17.0-1) experimental; urgency=medium
 
   * Resize volume when cloning or restoring from source

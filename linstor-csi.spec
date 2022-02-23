@@ -1,4 +1,4 @@
-Version: 0.17.0
+Version: 0.18.0
 
 %global common_description %{expand:
 Driver implementing the Container Storage Interface (CSI) specification for the LINSTOR software defined storage platform.
@@ -35,6 +35,12 @@ install -m 0755 -vp linstor-csi %{buildroot}%{_sbindir}/linstor-csi
 %{_sbindir}/linstor-csi
 
 %changelog
+* Thu Feb 24 2022 Moritz "WanzenBug" Wanzenböck <moritz.wanzenboeck@linbit.com> - 0.18.0-1
+- Optionally, allow using PVC name when available
+- Create and restore snapshots of volumes to and from S3
+- Support (some) differing parameters between original and cloned/restored volume
+- CSI Spec 1.5.0
+
 * Tue Dec 14 2021 Moritz "WanzenBug" Wanzenböck <moritz.wanzenboeck@linbit.com> - 0.17.0-1
 - Resize volume when cloning or restoring from source
 - Fix bad ordering of LINSTOR resource creation, leading to inconsistent volumes
