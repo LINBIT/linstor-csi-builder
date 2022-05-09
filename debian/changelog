@@ -1,3 +1,11 @@
+linstor-csi (0.19.0-1) experimental; urgency=medium
+
+  * Upstream release v0.19.0
+  * Rely on LINSTOR to create filesystem if needed
+  * Improve snapshot restore node selection based on preferred topology
+
+ -- Moritz "WanzenBug" Wanzenböck <moritz.wanzenboeck@linbit.com>  Mon, 09 May 2022 13:55:46 +0200
+
 linstor-csi (0.18.0-1) experimental; urgency=medium
 
   * Upstream release v0.18.0
