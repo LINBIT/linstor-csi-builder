@@ -14,7 +14,7 @@ COPY linstor-csi/ /buildroot/
 
 ARG TARGETARCH
 ARG SEMVER=0.19.1
-RUN GOARCH=$TARGETARCH CGO_ENABLED=0 go build -a -ldflags "-X github.com/piraeusdatastore/linstor-csi/pkg/driver.Version=$SEMVER -extldflags '-static'" -o linstor-csi ./cmd/linstor-csi
+RUN --mount=type=cache,target=/root/.cache/go-build GOARCH=$TARGETARCH CGO_ENABLED=0 go build -a -ldflags "-X github.com/piraeusdatastore/linstor-csi/pkg/driver.Version=$SEMVER -extldflags '-static'" -o linstor-csi ./cmd/linstor-csi
 
 FROM --platform=$BUILDPLATFORM golang:1.17 as downloader
 
