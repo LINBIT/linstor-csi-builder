@@ -51,7 +51,7 @@ done
 
 linstor physical-storage create-device-pool --pool-name sanity --storage-pool sanity-test lvmthin "$(hostname -f)" /dev/vdb
 
-/opt/testbin/csi-sanity-test -sanity.linstor-endpoint "http://localhost:3370" -sanity.mount-for-real -sanity.node "$(hostname -f)" -sanity.parameter-file /opt/testdata/params.yaml -sanity.junitfile /sanity-report.xml -ginkgo.failFast
+/opt/testbin/csi-sanity-test -sanity.linstor-endpoint "http://localhost:3370" -sanity.mount-for-real -sanity.node "$(hostname -f)" -sanity.parameter-file /opt/testdata/params.yaml -ginkgo.junit-report /sanity-report.xml -ginkgo.failFast
 """
 [steps.shell.env]
 LINBIT_SIGNING_KEY = "{{ .LinbitSigningKey }}"
