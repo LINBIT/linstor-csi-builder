@@ -1,4 +1,4 @@
-Version: 0.22.0
+Version: 0.22.1
 
 %global common_description %{expand:
 Driver implementing the Container Storage Interface (CSI) specification for the LINSTOR software defined storage platform.
@@ -35,6 +35,9 @@ install -m 0755 -vp linstor-csi %{buildroot}%{_sbindir}/linstor-csi
 %{_sbindir}/linstor-csi
 
 %changelog
+* Tue Dec 27 2022 Moritz "WanzenBug" Wanzenböck <moritz.wanzenboeck@linbit.com> - 0.22.1-1
+- Upstream release v0.22.1
+
 * Tue Dec 13 2022 Moritz "WanzenBug" Wanzenböck <moritz.wanzenboeck@linbit.com> - 0.22.0-1
 - Upstream release v0.22.0
 
