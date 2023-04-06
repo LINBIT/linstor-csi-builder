@@ -1,3 +1,5 @@
+version = 1
+
 [values]
 LinbitSigningKey = "https://packages.linbit.com/package-signing-pubkey.asc"
 LinbitPackageRepoLines = "deb https://packages.linbit.com/piraeus buster drbd-9"
