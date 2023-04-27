@@ -5,9 +5,9 @@ stages:
   - publish
 
 variables:
-  VIRTER_VERSION: v0.23.0
-  VMSHED_VERSION: v0.19.0
-  K8S_TEST_VERSION: v2.2.0
+  VIRTER_VERSION: v0.24.0
+  VMSHED_VERSION: v0.20.1
+  K8S_TEST_VERSION: v2.2.1
   E2E_BASE_IMAGE: alma-9
 
 prepare:
@@ -136,8 +136,13 @@ sanity-test:
       deb $LINBIT_REGISTRY_URL/repository/packages-linbit-com/staging focal drbd-9
   script:
     - export PATH=$CI_PROJECT_DIR/bin:$PATH
-    - virter image pull ubuntu-focal $LINBIT_DOCKER_REGISTRY/vm/ubuntu-focal:latest
-    - vmshed --vms test/sanity/vms.toml --tests test/sanity/tests.toml --set values.LinbitPackageRepoLines="$LINBIT_PACKAGE_REPO_LINES"
+    - >
+      vmshed
+      --nvms $(( ${LINBIT_CI_MAX_CPUS:-20} / 3 ))
+      --pull-template "${LINBIT_DOCKER_REGISTRY}/vm/{{ .Image }}:latest"
+      --vms test/sanity/vms.toml
+      --tests test/sanity/tests.toml
+      --set values.LinbitPackageRepoLines="$LINBIT_PACKAGE_REPO_LINES"
   artifacts:
     when: always
     paths:
@@ -164,16 +169,67 @@ e2e-test:
   script:
     - export PATH=$CI_PROJECT_DIR/bin:$PATH
     - create-k8s-test-configs -stable-releases-to-check=1 -include-next=1 -base-image=$E2E_BASE_IMAGE
-    - virter image pull $E2E_BASE_IMAGE $LINBIT_DOCKER_REGISTRY/vm/$E2E_BASE_IMAGE:latest
     - cd virter
     - |
-      cat <<EOF > csi-to-test.yml
-      csi:
-        pluginImage: $CSI_PLUGIN_IMAGE
+      cat <<EOF > clusterresources-v2.yml
+      ---
+      apiVersion: piraeus.io/v1
+      kind: LinstorCluster
+      metadata:
+        name: linstorcluster
+      spec:
+        patches:
+        - target:
+            kind: Deployment
+            name: linstor-csi-controller
+          patch: |
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: linstor-csi-controller
+            spec:
+              template:
+                spec:
+                  initContainers:
+                  - name: linstor-wait-api-online
+                    image: $CSI_PLUGIN_IMAGE
+                  containers:
+                  - name: linstor-csi
+                    image: $CSI_PLUGIN_IMAGE
+        - target:
+            kind: DaemonSet
+            name: linstor-csi-node
+          patch: |
+            apiVersion: apps/v1
+            kind: DaemonSet
+            metadata:
+              name: linstor-csi-node
+            spec:
+              template:
+                spec:
+                  initContainers:
+                  - name: linstor-wait-node-online
+                    image: $CSI_PLUGIN_IMAGE
+                  containers:
+                  - name: linstor-csi
+                    image: $CSI_PLUGIN_IMAGE
+      ---
+      apiVersion: piraeus.io/v1
+      kind: LinstorSatelliteConfiguration
+      metadata:
+        name: all-satellites
+      spec:
+        storagePools:
+          - name: thinpool
+            lvmThinPool: {}
+            source:
+              hostDevices:
+                - /dev/vdb
       EOF
     - >
       vmshed
       --nvms $(( ${LINBIT_CI_MAX_CPUS:-20} / 3 ))
+      --pull-template "${LINBIT_DOCKER_REGISTRY}/vm/{{ .Image }}:latest"
       --torun k8s-e2e-storage
       --variant k8s-backend
       --set values.DockerRegistryMirror=https://${DOCKER_REGISTRY_MIRROR}
@@ -185,7 +241,7 @@ e2e-test:
       --set values.JustKubeadmImage=${LINBIT_DOCKER_REGISTRY}/linstor-kubernetes-tests/just-kubeadm:$K8S_TEST_VERSION
       --set values.HelmImage=$LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/helm:$K8S_TEST_VERSION
       --set values.TestImage=$LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/tests:$K8S_TEST_VERSION
-      --set values.LinstorValues=/virter/workspace/csi-to-test.yml
+      --set values.DeploymentVersion=v2
   artifacts:
     when: always
     paths:
