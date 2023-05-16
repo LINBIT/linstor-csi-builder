@@ -7,7 +7,8 @@ stages:
 variables:
   VIRTER_VERSION: v0.24.0
   VMSHED_VERSION: v0.20.1
-  K8S_TEST_VERSION: v2.2.1
+  K8S_TEST_VERSION: v2.2.5
+  KUSTOMIZE_VERSION: v5.0.3
   E2E_BASE_IMAGE: alma-9
 
 prepare:
@@ -31,6 +32,7 @@ prepare:
     - ci_fetch_binary virter virter-$VIRTER_VERSION https://github.com/LINBIT/virter/releases/download/$VIRTER_VERSION/virter-linux-amd64
     - ci_fetch_binary vmshed vmshed-$VMSHED_VERSION https://github.com/LINBIT/vmshed/releases/download/$VMSHED_VERSION/vmshed-linux-amd64
     - ci_fetch_binary create-k8s-test-configs create-k8s-test-configs-$K8S_TEST_VERSION $LINBIT_REGISTRY_URL/repository/tools/create-k8s-test-configs:$K8S_TEST_VERSION
+    - ci_fetch_tar kustomize-$KUSTOMIZE_VERSION https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz -z
   artifacts:
     paths:
       - bin
@@ -171,61 +173,59 @@ e2e-test:
     - create-k8s-test-configs -stable-releases-to-check=1 -include-next=1 -base-image=$E2E_BASE_IMAGE
     - cd virter
     - |
-      cat <<EOF > clusterresources-v2.yml
+      cat <<EOF > kustomization.yml
       ---
-      apiVersion: piraeus.io/v1
-      kind: LinstorCluster
-      metadata:
-        name: linstorcluster
-      spec:
-        patches:
-        - target:
-            kind: Deployment
-            name: linstor-csi-controller
-          patch: |
-            apiVersion: apps/v1
-            kind: Deployment
-            metadata:
-              name: linstor-csi-controller
-            spec:
-              template:
+      apiVersion: kustomize.config.k8s.io/v1beta1
+      kind: Kustomization
+      resources:
+      - clusterresources-v2.yml
+      patches:
+      - target:
+          kind: LinstorCluster
+          name: linstorcluster
+        patch: |
+          - op: add
+            path: /spec/patches/-
+            value:
+              target:
+                kind: Deployment
+                name: linstor-csi-controller
+              patch: |
+                apiVersion: apps/v1
+                kind: Deployment
+                metadata:
+                  name: linstor-csi-controller
                 spec:
-                  initContainers:
-                  - name: linstor-wait-api-online
-                    image: $CSI_PLUGIN_IMAGE
-                  containers:
-                  - name: linstor-csi
-                    image: $CSI_PLUGIN_IMAGE
-        - target:
-            kind: DaemonSet
-            name: linstor-csi-node
-          patch: |
-            apiVersion: apps/v1
-            kind: DaemonSet
-            metadata:
-              name: linstor-csi-node
-            spec:
-              template:
+                  template:
+                    spec:
+                      initContainers:
+                      - name: linstor-wait-api-online
+                        image: $CSI_PLUGIN_IMAGE
+                      containers:
+                      - name: linstor-csi
+                        image: $CSI_PLUGIN_IMAGE
+          - op: add
+            path: /spec/patches/-
+            value:
+              target:
+                kind: DaemonSet
+                name: linstor-csi-node
+              patch: |
+                apiVersion: apps/v1
+                kind: DaemonSet
+                metadata:
+                  name: linstor-csi-node
                 spec:
-                  initContainers:
-                  - name: linstor-wait-node-online
-                    image: $CSI_PLUGIN_IMAGE
-                  containers:
-                  - name: linstor-csi
-                    image: $CSI_PLUGIN_IMAGE
-      ---
-      apiVersion: piraeus.io/v1
-      kind: LinstorSatelliteConfiguration
-      metadata:
-        name: all-satellites
-      spec:
-        storagePools:
-          - name: thinpool
-            lvmThinPool: {}
-            source:
-              hostDevices:
-                - /dev/vdb
+                  template:
+                    spec:
+                      initContainers:
+                      - name: linstor-wait-node-online
+                        image: $CSI_PLUGIN_IMAGE
+                      containers:
+                      - name: linstor-csi
+                        image: $CSI_PLUGIN_IMAGE
       EOF
+    - kustomize build . | tee clusterresource-v2-csi.yml
     - >
       vmshed
       --nvms $(( ${LINBIT_CI_MAX_CPUS:-20} / 3 ))
@@ -242,6 +242,7 @@ e2e-test:
       --set values.HelmImage=$LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/helm:$K8S_TEST_VERSION
       --set values.TestImage=$LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/tests:$K8S_TEST_VERSION
       --set values.DeploymentVersion=v2
+      --set values.DeploymentV2Config=/virter/workspace/clusterresource-v2-csi.yml
   artifacts:
     when: always
     paths:
