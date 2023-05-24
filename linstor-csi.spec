@@ -35,7 +35,7 @@ install -m 0755 -vp linstor-csi %{buildroot}%{_sbindir}/linstor-csi
 %{_sbindir}/linstor-csi
 
 %changelog
-* Wed 24 May 2023 Moritz "WanzenBug" Wanzenböck <moritz.wanzenboeck@linbit.com> - 1.1.0-1
+* Wed May 24 2023 Moritz "WanzenBug" Wanzenböck <moritz.wanzenboeck@linbit.com> - 1.1.0-1
 - Upstream release v1.1.0
 
 * Mon Apr 24 2023 Moritz "WanzenBug" Wanzenböck <moritz.wanzenboeck@linbit.com> - 1.0.1-1
