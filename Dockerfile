@@ -13,7 +13,7 @@ RUN go mod download
 COPY linstor-csi/ /buildroot/
 
 ARG TARGETARCH
-ARG SEMVER=1.1.0
+ARG SEMVER=1.2.0
 RUN --mount=type=cache,target=/root/.cache/go-build GOARCH=$TARGETARCH CGO_ENABLED=0 go build -a -ldflags "-X github.com/piraeusdatastore/linstor-csi/pkg/driver.Version=$SEMVER -extldflags '-static'" -o linstor-csi ./cmd/linstor-csi
 
 FROM --platform=$BUILDPLATFORM golang:1.17 as downloader
@@ -32,7 +32,7 @@ RUN --mount=type=bind,from=repo-source,source=/run/secrets,target=/run/secrets \
   && microdnf install e2fsprogs xfsprogs util-linux  \
   && microdnf clean all
 
-ARG SEMVER=1.1.0
+ARG SEMVER=1.2.0
 ARG RELEASE=1
 LABEL name="LINSTOR CSI driver" \
       vendor="LINBIT" \
