@@ -1,5 +1,5 @@
 [[vms]]
 vcpus = 4
 memory = "8G"
-base_image = "ubuntu-focal"
+base_image = "ubuntu-jammy"
 disks = ["name=sanity-test-data,size=20G,bus=virtio"]

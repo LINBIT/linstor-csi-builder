@@ -7,7 +7,7 @@ stages:
 variables:
   VIRTER_VERSION: v0.26.0
   VMSHED_VERSION: v0.22.0
-  K8S_TEST_VERSION: v2.6.4
+  K8S_TEST_VERSION: v2.7.0
   KUSTOMIZE_VERSION: v5.3.0
   E2E_BASE_IMAGE: alma-9
 
@@ -134,8 +134,8 @@ sanity-test:
     - if: $CI_COMMIT_TAG
   variables:
     LINBIT_PACKAGE_REPO_LINES: |
-      deb $LINBIT_REGISTRY_URL/repository/packages-linbit-com focal drbd-9
-      deb $LINBIT_REGISTRY_URL/repository/packages-linbit-com/staging focal drbd-9
+      deb $LINBIT_REGISTRY_URL/repository/packages-linbit-com jammy drbd-9
+      deb $LINBIT_REGISTRY_URL/repository/packages-linbit-com/staging jammy drbd-9
   script:
     - export PATH=$CI_PROJECT_DIR/bin:$PATH
     - >
@@ -231,7 +231,7 @@ e2e-test:
       --nvms $(( ${LINBIT_CI_MAX_CPUS:-20} / 3 ))
       --pull-template "${LINBIT_DOCKER_REGISTRY}/vm/{{ .Image }}:latest"
       --torun k8s-e2e-storage
-      --variant k8s-backend
+      --variant ipv4
       --set values.DockerRegistryMirror=https://${DOCKER_REGISTRY_MIRROR}
       --set values.DrbdRegistryMirror=https://${DRBD_REGISTRY_MIRROR}
       --set values.K8sGcrIoMirror=https://${K8S_REGISTRY_MIRROR}
