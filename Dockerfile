@@ -13,14 +13,14 @@ RUN go mod download
 COPY linstor-csi/ /buildroot/
 
 ARG TARGETARCH
-ARG SEMVER=1.6.1
+ARG SEMVER=1.6.2
 RUN --mount=type=cache,target=/root/.cache/go-build GOARCH=$TARGETARCH CGO_ENABLED=0 go build -a -ldflags "-X github.com/piraeusdatastore/linstor-csi/pkg/driver.Version=$SEMVER -extldflags '-static'" -o linstor-csi ./cmd/linstor-csi
 
 FROM --platform=$BUILDPLATFORM golang:1 as downloader
 
 ARG TARGETOS
 ARG TARGETARCH
-ARG LINSTOR_WAIT_UNTIL_VERSION=v0.1.1
+ARG LINSTOR_WAIT_UNTIL_VERSION=v0.2.2
 RUN curl -fsSL https://github.com/LINBIT/linstor-wait-until/releases/download/$LINSTOR_WAIT_UNTIL_VERSION/linstor-wait-until-$LINSTOR_WAIT_UNTIL_VERSION-$TARGETOS-$TARGETARCH.tar.gz | tar xvzC /
 
 FROM --platform=$TARGETPLATFORM registry.access.redhat.com/ubi8/ubi-minimal:latest
@@ -32,7 +32,7 @@ RUN --mount=type=bind,from=repo-source,source=/run/secrets,target=/run/secrets \
   && microdnf install e2fsprogs xfsprogs util-linux  \
   && microdnf clean all
 
-ARG SEMVER=1.6.1
+ARG SEMVER=1.6.2
 ARG RELEASE=1
 LABEL name="LINSTOR CSI driver" \
       vendor="LINBIT" \
