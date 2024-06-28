@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1
 ARG REPO_SOURCE=centos:8
-FROM --platform=$TARGETPLATFORM $REPO_SOURCE as repo-source
+FROM --platform=$TARGETPLATFORM $REPO_SOURCE AS repo-source
 
-FROM --platform=$BUILDPLATFORM golang:1 as builder
+FROM --platform=$BUILDPLATFORM golang:1 AS builder
 
 WORKDIR /buildroot
 COPY linstor-csi/go.mod linstor-csi/go.sum /buildroot/
@@ -16,7 +16,7 @@ ARG TARGETARCH
 ARG SEMVER=1.6.3
 RUN --mount=type=cache,target=/root/.cache/go-build GOARCH=$TARGETARCH CGO_ENABLED=0 go build -a -ldflags "-X github.com/piraeusdatastore/linstor-csi/pkg/driver.Version=$SEMVER -extldflags '-static'" -o linstor-csi ./cmd/linstor-csi
 
-FROM --platform=$BUILDPLATFORM golang:1 as downloader
+FROM --platform=$BUILDPLATFORM golang:1 AS downloader
 
 ARG TARGETOS
 ARG TARGETARCH
@@ -24,7 +24,6 @@ ARG LINSTOR_WAIT_UNTIL_VERSION=v0.2.3
 RUN curl -fsSL https://github.com/LINBIT/linstor-wait-until/releases/download/$LINSTOR_WAIT_UNTIL_VERSION/linstor-wait-until-$LINSTOR_WAIT_UNTIL_VERSION-$TARGETOS-$TARGETARCH.tar.gz | tar xvzC /
 
 FROM --platform=$TARGETPLATFORM registry.access.redhat.com/ubi8/ubi-minimal:latest
-MAINTAINER Roland Kammerer <roland.kammerer@linbit.com>
 
 # Add the extra repo just for this step.
 RUN --mount=type=bind,from=repo-source,source=/run/secrets,target=/run/secrets \

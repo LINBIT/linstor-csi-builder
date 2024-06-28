@@ -27,15 +27,6 @@ help:
 
 all: update upload
 
-.PHONY: update
-update: Dockerfile
-	docker buildx build --load --build-arg=REPO_SOURCE=$(REPO_SOURCE) --build-arg=SEMVER=$(SEMVER) --no-cache=$(NOCACHE) -t $(PROJECT):$(TAG) .
-
-.PHONY: upload
-upload:
-	docker tag $(PROJECT):$(TAG) $(REGISTRY)/$(PROJECT):$(TAG)
-	docker push $(REGISTRY)/$(PROJECT):$(TAG)
-
 prepare-release:
 	sed -i "s/ARG SEMVER=.*/ARG SEMVER=$(SEMVER)/" Dockerfile
 	sed -i "s/Version: .*/Version: $(SEMVER)/" linstor-csi.spec
