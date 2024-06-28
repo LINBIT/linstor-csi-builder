@@ -1,3 +1,9 @@
+linstor-csi (1.6.3-1) experimental; urgency=medium
+
+  * Upstream release v1.6.3
+
+ -- Moritz Wanzenböck <moritz.wanzenboeck@linbit.com>  Fri, 28 Jun 2024 07:41:14 +0200
+
 linstor-csi (1.6.2-1) experimental; urgency=medium
 
   * Upstream release v1.6.2
