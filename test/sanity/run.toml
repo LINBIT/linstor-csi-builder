@@ -1,8 +1,8 @@
 version = 1
 
 [values]
-LinbitSigningKey = "https://packages.linbit.com/package-signing-pubkey.asc"
-LinbitPackageRepoLines = "deb https://packages.linbit.com/piraeus buster drbd-9"
+LinbitSigningKeyPackage = "https://packages.linbit.com/public/linbit-keyring.deb"
+LinbitPackageRepoLines = "deb [signed-by=/etc/apt/trusted.gpg.d/linbit-keyring.gpg] https://packages.linbit.com/piraeus bullseye drbd-9"
 
 [[steps]]
 [steps.rsync]
@@ -19,7 +19,8 @@ dest = "/opt/testdata/"
 script = """
 set -ex
 
-curl -fsSL "$LINBIT_SIGNING_KEY" | apt-key add -
+curl -fsSL "$LINBIT_SIGNING_KEY_PACKAGE" -o /tmp/linbit-keyring.deb
+dpkg -i /tmp/linbit-keyring.deb
 echo "$LINBIT_PACKAGE_REPO_LINES" > /etc/apt/sources.list.d/linbit.list
 
 apt-get update
@@ -56,5 +57,5 @@ linstor physical-storage create-device-pool --pool-name sanity --storage-pool sa
 /opt/testbin/csi-sanity-test -sanity.linstor-endpoint "http://localhost:3370" -sanity.mount-for-real -sanity.node "$(hostname -f)" -sanity.parameter-file /opt/testdata/params.yaml -ginkgo.junit-report /sanity-report.xml -ginkgo.fail-fast
 """
 [steps.shell.env]
-LINBIT_SIGNING_KEY = "{{ .LinbitSigningKey }}"
+LINBIT_SIGNING_KEY_PACKAGE = "{{ .LinbitSigningKeyPackage }}"
 LINBIT_PACKAGE_REPO_LINES = "{{ .LinbitPackageRepoLines }}"
