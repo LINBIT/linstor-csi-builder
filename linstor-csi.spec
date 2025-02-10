@@ -1,4 +1,4 @@
-Version: 1.6.4
+Version: 1.6.5
 
 %global common_description %{expand:
 Driver implementing the Container Storage Interface (CSI) specification for the LINSTOR software defined storage platform.

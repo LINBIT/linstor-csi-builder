@@ -5,9 +5,9 @@ stages:
   - publish
 
 variables:
-  VIRTER_VERSION: v0.28.0
+  VIRTER_VERSION: v0.28.1
   VMSHED_VERSION: v0.22.1
-  K8S_TEST_VERSION: v2.7.4
+  K8S_TEST_VERSION: v2.8.0
   KUSTOMIZE_VERSION: v5.5.0
   E2E_BASE_IMAGE: alma-9
 
