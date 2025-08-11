@@ -28,7 +28,7 @@ FROM --platform=$TARGETPLATFORM registry.access.redhat.com/ubi9/ubi-minimal:late
 # Add the extra repo just for this step.
 RUN --mount=type=bind,from=repo-source,source=/run/secrets,target=/run/secrets \
   microdnf update -y \
-  && microdnf install -y e2fsprogs xfsprogs util-linux  \
+  && microdnf install -y e2fsprogs xfsprogs util-linux nfs-utils \
   && microdnf clean all
 
 ARG SEMVER=1.9.0

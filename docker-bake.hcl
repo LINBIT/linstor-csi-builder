@@ -14,13 +14,18 @@ variable REPO_SOURCE {
   default = ""
 }
 
+variable LINBIT_REPO {
+  default = "/dev/null"
+}
+
 variable GOPROXY {
   default = ""
 }
 
 group "default" {
   targets = [
-    "linstor-csi"
+    "linstor-csi",
+    "nfs-server",
   ]
 }
 
@@ -59,4 +64,26 @@ target "linstor-csi" {
   }
   context   = "."
   platforms = platforms.platforms
+}
+
+target "nfs-server" {
+  name = "${escape(platforms.prefix)}nfs-server"
+  tags = [
+    "${REGISTRY}/${platforms.prefix}nfs-server:${TAG}"
+  ]
+  matrix = {
+    platforms = platform_variants(PLATFORMS)
+  }
+  args = {
+    GOPROXY = GOPROXY
+    REPO_SOURCE = REPO_SOURCE
+  }
+  context   = "."
+  dockerfile = "nfs/Dockerfile"
+  platforms = platforms.platforms
+  secret = [{
+    type = "file"
+    id = "linbit.repo"
+    src = "${LINBIT_REPO}"
+  }]
 }

@@ -50,6 +50,7 @@ build:
     REPO_SOURCE: ${LINBIT_DOCKER_REGISTRY}/rhel-container-secrets:latest
     REGISTRY: ${LINBIT_DOCKER_REGISTRY}
     PLATFORMS: ${PUBLISH_PLATFORMS}
+    LINBIT_REPO: ${LINBIT_RHEL_DRBD9_REPO}
   rules:
     - if: $CI_MERGE_REQUEST_ID
     - if: $CI_COMMIT_BRANCH == 'master'
