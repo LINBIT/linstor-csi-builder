@@ -171,7 +171,7 @@ e2e-test:
   timeout: 8h
   script:
     - export PATH=$CI_PROJECT_DIR/bin:$PATH
-    - create-k8s-test-configs -stable-releases-to-check=1 -include-next=1 -base-image=$E2E_BASE_IMAGE
+    - create-k8s-test-configs -stable-releases-to-check=1 -include-next=0 -base-image=$E2E_BASE_IMAGE
     - cd virter
     - |
       cat <<EOF > kustomization.yml
