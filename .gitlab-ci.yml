@@ -7,7 +7,7 @@ stages:
 variables:
   VIRTER_VERSION: v0.29.0
   VMSHED_VERSION: v0.23.0
-  K8S_TEST_VERSION: v2.9.0
+  K8S_TEST_VERSION: v2.9.3
   KUSTOMIZE_VERSION: v5.7.1
   E2E_BASE_IMAGE: alma-9
 
@@ -179,54 +179,28 @@ e2e-test:
       apiVersion: kustomize.config.k8s.io/v1beta1
       kind: Kustomization
       resources:
-      - clusterresources-v2.yml
-      patches:
-      - target:
-          kind: LinstorCluster
-          name: linstorcluster
-        patch: |
-          - op: add
-            path: /spec/patches/-
-            value:
-              target:
-                kind: Deployment
-                name: linstor-csi-controller
-              patch: |
-                apiVersion: apps/v1
-                kind: Deployment
-                metadata:
-                  name: linstor-csi-controller
-                spec:
-                  template:
-                    spec:
-                      initContainers:
-                      - name: linstor-wait-api-online
-                        image: $CSI_PLUGIN_IMAGE
-                      containers:
-                      - name: linstor-csi
-                        image: $CSI_PLUGIN_IMAGE
-          - op: add
-            path: /spec/patches/-
-            value:
-              target:
-                kind: DaemonSet
-                name: linstor-csi-node
-              patch: |
-                apiVersion: apps/v1
-                kind: DaemonSet
-                metadata:
-                  name: linstor-csi-node
-                spec:
-                  template:
-                    spec:
-                      initContainers:
-                      - name: linstor-wait-node-online
-                        image: $CSI_PLUGIN_IMAGE
-                      containers:
-                      - name: linstor-csi
-                        image: $CSI_PLUGIN_IMAGE
+      - $LINBIT_REGISTRY_URL/repository/pages/linstor-operator/v2.yaml
+      configMapGenerator:
+      - name: linstor-operator-image-config
+        namespace: linbit-sds
+        options:
+          disableNameSuffixHash: true
+        behavior: merge
+        files:
+        - 1_csi-image-config.yaml
       EOF
-    - kustomize build . | tee clusterresource-v2-csi.yml
+    - |
+      cat <<EOF > 1_csi-image-config.yaml
+      ---
+      base: ${LINBIT_DOCKER_REGISTRY}
+      components:
+        linstor-csi:
+          image: linstor-csi
+          tag: ${TAG}
+        nfs-server:
+          image: nfs-server
+          tag: ${TAG}
+      EOF
     - >
       vmshed
       --nvms $(( ${LINBIT_CI_MAX_CPUS:-20} / 3 ))
@@ -243,7 +217,7 @@ e2e-test:
       --set values.HelmImage=$LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/helm:$K8S_TEST_VERSION
       --set values.TestImage=$LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/tests:$K8S_TEST_VERSION
       --set values.DeploymentVersion=v2
-      --set values.DeploymentV2Config=/virter/workspace/clusterresource-v2-csi.yml
+      --set values.DeploymentV2Source=/virter/workspace/
   artifacts:
     when: always
     paths:
