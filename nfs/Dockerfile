@@ -79,6 +79,7 @@ RUN --mount=type=bind,from=repo-source,source=/run/secrets,target=/run/secrets \
       https://packages.linbit.com/public/linbit-keyring.rpm && \
     dnf install -y \
       --setopt=install_weak_deps=false \
+      --enablerepo=linbit-drbd-9-staging \
       drbd-reactor xfsprogs e2fsprogs && \
     sed -e 's/usage-count yes;/usage-count no;/' -i /etc/drbd.d/global_common.conf && \
     dnf clean all -y
