@@ -42,17 +42,18 @@ FROM --platform=$BUILDPLATFORM golang:1 AS gobuilder
 
 WORKDIR /src
 COPY --link /linstor-csi/go.mod /linstor-csi/go.sum /src/
+ARG GOPROXY
 RUN go mod download
 COPY --link /linstor-csi/cmd /src/cmd
 COPY --link /linstor-csi/pkg /src/pkg
 
 ARG TARGETARCH
 ARG TARGETOS
-ARG VERSION=unknown
+ARG SEMVER=unknown
 RUN --mount=type=cache,target=/root/.cache/go-build GOOS=$TARGETOS GOARCH=$TARGETARCH CGO_ENABLED=0 \
     go build \
     -a \
-    -ldflags "-X github.com/piraeusdatastore/linstor-csi/pkg/driver.Version=$VERSION -extldflags -static"  \
+    -ldflags "-X github.com/piraeusdatastore/linstor-csi/pkg/driver.Version=$SEMVER -extldflags -static"  \
     -o /nfs-helper  \
     ./cmd/nfs-helper
 
@@ -98,6 +99,16 @@ RUN \
     # The reason this image exists. reactor is started by the reconcile-nfs service. \
     systemctl disable drbd-reactor.service && \
     systemctl enable start-stop-reactor.service
+
+ARG SEMVER=unknown
+ARG RELEASE=1
+LABEL name="LINSTOR CSI NFS Server" \
+      vendor="LINBIT" \
+      version="$SEMVER" \
+      release="$RELEASE" \
+      summary="LINSTOR's CSI NFS Server component" \
+      description="LINSTOR's CSI NFS Server component"
+COPY LICENSE /licenses/gpl-2.0.txt
 
 STOPSIGNAL SIGRTMIN+3
 ENV container=oci SYSTEMD_GETTY_AUTO=no

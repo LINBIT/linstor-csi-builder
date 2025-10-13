@@ -31,7 +31,7 @@ RUN --mount=type=bind,from=repo-source,source=/run/secrets,target=/run/secrets \
   && microdnf install -y e2fsprogs xfsprogs util-linux nfs-utils \
   && microdnf clean all
 
-ARG SEMVER=1.9.0
+ARG SEMVER=unknown
 ARG RELEASE=1
 LABEL name="LINSTOR CSI driver" \
       vendor="LINBIT" \

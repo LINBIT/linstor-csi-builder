@@ -25,10 +25,7 @@ PKG_SRC = linstor-csi.spec $(shell find ./debian -type f) PKG_README.md Makefile
 help:
 	@echo "Useful targets: 'update', 'upload'"
 
-all: update upload
-
 prepare-release:
-	sed -i "s/ARG SEMVER=.*/ARG SEMVER=$(SEMVER)/" Dockerfile
 	sed -i "s/Version: .*/Version: $(SEMVER)/" linstor-csi.spec
 	DEBFULLNAME='$(shell git config user.name)' DEBEMAIL='$(shell git config user.email)' dch --newversion $(SEMVER)-1 --distribution experimental "Upstream release $(shell git -C linstor-csi describe --match 'v*')"
 	rpmdev-bumpspec --new=$(SEMVER) -c "Upstream release $(shell git -C linstor-csi describe --match 'v*')" linstor-csi.spec

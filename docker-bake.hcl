@@ -6,6 +6,10 @@ variable "PLATFORMS" {
   default = "linux/amd64"
 }
 
+variable "SEMVER" {
+  default = "0.0.0-unknown"
+}
+
 variable "TAG" {
   default = "latest"
 }
@@ -61,6 +65,7 @@ target "linstor-csi" {
   args = {
     GOPROXY = GOPROXY
     REPO_SOURCE = REPO_SOURCE
+    SEMVER = SEMVER
   }
   context   = "."
   platforms = platforms.platforms
@@ -77,6 +82,7 @@ target "nfs-server" {
   args = {
     GOPROXY = GOPROXY
     REPO_SOURCE = REPO_SOURCE
+    SEMVER = SEMVER
   }
   context   = "."
   dockerfile = "nfs/Dockerfile"
