@@ -60,6 +60,7 @@ build:
   script:
     - docker buildx bake --pull --push --no-cache="${NOCACHE}"
     - echo "CSI_PLUGIN_IMAGE=${LINBIT_DOCKER_REGISTRY}/linstor-csi:${TAG}" > .build.env
+    - echo "NFS_SERVER_IMAGE=${LINBIT_DOCKER_REGISTRY}/nfs-server:${TAG}" >> .build.env
   artifacts:
     reports:
       dotenv:
@@ -98,30 +99,45 @@ make-tar:
     exclude:
       - out/test
 
-container_scanning:
+.container_scanning:
   stage: test
   rules:
-    - if: $CI_MERGE_REQUEST_ID
-    - if: $CI_COMMIT_BRANCH == 'master'
-    - if: $CI_COMMIT_TAG
+  - if: $CI_MERGE_REQUEST_ID
+  - if: $CI_COMMIT_BRANCH == 'master'
+  - if: $CI_COMMIT_TAG
   image: ${LINBIT_DOCKER_REGISTRY}/trivy:latest
   variables:
     # No need to clone the repo, we exclusively work on artifacts.  See
     # https://docs.gitlab.com/ee/ci/runners/README.html#git-strategy
     GIT_STRATEGY: none
   script:
-    - trivy --version
-    - trivy image --exit-code 0 --format template --template "@/contrib/html.tpl" -o container-scan.html "$CSI_PLUGIN_IMAGE"
-    # Prints full report
-    - trivy image --exit-code 0 "$CSI_PLUGIN_IMAGE"
-    # Fail on critical (unfixed) vulnerabilities
-    - trivy image --exit-code 1 --ignore-unfixed --severity CRITICAL "$CSI_PLUGIN_IMAGE"
+  - trivy --version
+  - trivy image --exit-code 0 --format template --template "@/contrib/html.tpl" -o container-scan.html "$IMAGE"
+  # Prints full report
+  - trivy image --exit-code 0 "$IMAGE"
+  # Fail on critical (unfixed) vulnerabilities
+  - trivy image --exit-code 1 --ignore-unfixed --severity CRITICAL "$IMAGE"
   # Ideally, we would use container_scanning for the artifact here. That is currently a paid feature, so we have to use code quality
   artifacts:
     when: always
-    expose_as: "Container Scan"
     paths:
-      - container-scan.html
+    - container-scan.html
+
+container_scanning:csi-plugin:
+  extends:
+  - .container_scanning
+  variables:
+    IMAGE: $CSI_PLUGIN_IMAGE
+  artifacts:
+    expose_as: "Container Scan - CSI Plugin"
+
+container_scanning:nfs-server:
+  extends:
+  - .container_scanning
+  variables:
+    IMAGE: $NFS_SERVER_IMAGE
+  artifacts:
+    expose_as: "Container Scan - NFS Server"
 
 sanity-test:
   stage: test
