@@ -248,6 +248,7 @@ publish:
     REPO_SOURCE: ${LINBIT_DOCKER_REGISTRY}/rhel-container-secrets:latest
     REGISTRY: ${PUBLISH_REGISTRY}
     PLATFORMS: ${PUBLISH_PLATFORMS}
+    LINBIT_REPO: ${LINBIT_RHEL_DRBD9_REPO}
   rules:
     - if: $CI_COMMIT_BRANCH == 'master'
       when: manual
