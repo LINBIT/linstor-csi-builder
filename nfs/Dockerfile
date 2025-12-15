@@ -9,7 +9,7 @@ FROM build AS build-libntirpc
 
 RUN --mount=type=bind,from=repo-source,source=/run/secrets,target=/run/secrets \
     mkdir /rpms && \
-    git clone -b c9s-sig-storage-nfs-ganesha-7 https://gitlab.com/CentOS/storage/libntirpc.git && \
+    git clone -b c9s-sig-storage-nfs-ganesha-7 https://gitlab.com/CentOS/storage/rpms/libntirpc.git && \
     cd libntirpc && \
     spectool -g libntirpc.spec && \
     rpmbuild -bs --define "_sourcedir $PWD" --define "_srcrpmdir $PWD" libntirpc.spec && \
@@ -24,7 +24,7 @@ RUN --mount=type=bind,from=repo-source,source=/run/secrets,target=/run/secrets \
     --mount=type=bind,from=build-libntirpc,source=/rpms,target=/pkgs/build-libntirpc \
     mkdir /rpms && \
     dnf install --setopt=install_weak_deps=false -y libacl-devel && \
-    git clone -b c9s-sig-storage-nfs-ganesha-7 https://gitlab.com/CentOS/storage/nfs-ganesha.git && \
+    git clone -b c9s-sig-storage-nfs-ganesha-7 https://gitlab.com/CentOS/storage/rpms/nfs-ganesha.git && \
     cd nfs-ganesha && \
     spectool -g nfs-ganesha.spec && \
     rpmbuild -bs --define "_sourcedir $PWD" --define "_srcrpmdir $PWD" nfs-ganesha.spec --without rados_recov --without rados_urls --without ceph --without rgw --without gluster --without gpfs --without saunafs --without xfs --without nullfs --without mem --without monitoring_support && \
