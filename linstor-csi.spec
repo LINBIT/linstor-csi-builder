@@ -8,7 +8,7 @@ Driver implementing the Container Storage Interface (CSI) specification for the 
 # package instead of “goname”. Separate built binaries in different subpackages
 # if needed.
 Name:    linstor-csi
-Release: 1%{?dist}
+Release: 2%{?dist}
 Summary: Driver implementing the Container Storage Interface (CSI) specification for the LINSTOR software defined storage platform.
 
 License: GPLv2 and ASL 2.0
@@ -35,6 +35,9 @@ install -m 0755 -vp linstor-csi %{buildroot}%{_sbindir}/linstor-csi
 %{_sbindir}/linstor-csi
 
 %changelog
+* Mo Feb 16 2026 Moritz Tanner <moritz.wanzenboeck@linbit.com> - 1.10.5-2
+- Upstream release v1.10.5-1-g8dbb7a7
+
 * Wed Dec 17 2025 Moritz "WanzenBug" Wanzenböck <moritz.wanzenboeck@linbit.com> - 1.10.5-1
 - Upstream release v1.10.5
 
