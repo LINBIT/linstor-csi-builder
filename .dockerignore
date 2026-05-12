@@ -1,5 +1,5 @@
-*
-!LICENSE
-!README.md
-!linstor-csi
-linstor-csi/.git
+/
+!/LICENSE
+!/README.md
+!/linstor-csi
+/linstor-csi/.git

@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 ARG REPO_SOURCE=centos:9
-FROM --platform=$TARGETPLATFORM $REPO_SOURCE AS repo-source
+FROM $REPO_SOURCE AS repo-source
 
 FROM --platform=$BUILDPLATFORM golang:1 AS builder
 
@@ -23,7 +23,7 @@ ARG TARGETARCH
 ARG LINSTOR_WAIT_UNTIL_VERSION=v1.0.0
 RUN curl -fsSL https://github.com/LINBIT/linstor-wait-until/releases/download/$LINSTOR_WAIT_UNTIL_VERSION/linstor-wait-until-$LINSTOR_WAIT_UNTIL_VERSION-$TARGETOS-$TARGETARCH.tar.gz | tar xvzC /
 
-FROM --platform=$TARGETPLATFORM registry.access.redhat.com/ubi9/ubi-minimal:latest
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 
 # Add the extra repo just for this step.
 RUN --mount=type=bind,from=repo-source,source=/run/secrets,target=/run/secrets \
