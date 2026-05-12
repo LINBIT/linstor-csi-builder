@@ -13,14 +13,14 @@ RUN go mod download
 COPY linstor-csi/ /buildroot/
 
 ARG TARGETARCH
-ARG SEMVER=1.9.0
+ARG SEMVER=1.11.2
 RUN --mount=type=cache,target=/root/.cache/go-build GOARCH=$TARGETARCH CGO_ENABLED=0 go build -a -ldflags "-X github.com/piraeusdatastore/linstor-csi/pkg/driver.Version=$SEMVER -extldflags '-static'" -o linstor-csi ./cmd/linstor-csi
 
 FROM --platform=$BUILDPLATFORM golang:1 AS downloader
 
 ARG TARGETOS
 ARG TARGETARCH
-ARG LINSTOR_WAIT_UNTIL_VERSION=v0.3.3
+ARG LINSTOR_WAIT_UNTIL_VERSION=v1.0.0
 RUN curl -fsSL https://github.com/LINBIT/linstor-wait-until/releases/download/$LINSTOR_WAIT_UNTIL_VERSION/linstor-wait-until-$LINSTOR_WAIT_UNTIL_VERSION-$TARGETOS-$TARGETARCH.tar.gz | tar xvzC /
 
 FROM --platform=$TARGETPLATFORM registry.access.redhat.com/ubi9/ubi-minimal:latest
