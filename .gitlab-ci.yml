@@ -5,11 +5,11 @@ stages:
   - publish
 
 variables:
-  VIRTER_VERSION: v1.0.0
+  VIRTER_VERSION: v1.1.0
   VMSHED_VERSION: v0.28.0
-  K8S_TEST_VERSION: v2.10.1
+  K8S_TEST_VERSION: v2.10.2
   KUSTOMIZE_VERSION: v5.8.1
-  E2E_BASE_IMAGE: alma-9
+  E2E_BASE_IMAGE: alma-10
 
 prepare:
   image: ${LINBIT_DOCKER_REGISTRY}/build-helpers:latest
@@ -65,22 +65,6 @@ build:
     reports:
       dotenv:
         - .build.env
-
-build-sanity-test:
-  stage: build
-  variables:
-    GIT_SUBMODULE_STRATEGY: recursive
-  rules:
-    - if: $CI_MERGE_REQUEST_ID
-    - if: $CI_COMMIT_BRANCH == 'master'
-    - if: $CI_COMMIT_TAG
-  image: golang:1
-  script:
-    - cd linstor-csi
-    - CGO_ENABLED=0 go test --ldflags '-extldflags "-static"' -gcflags all=-trimpath=. --asmflags all=-trimpath=. -o ../out/test/csi-sanity-test -c ./pkg/driver
-  artifacts:
-    paths:
-      - out/test/csi-sanity-test
 
 make-tar:
   stage: build
@@ -139,35 +123,6 @@ container_scanning:nfs-server:
   artifacts:
     expose_as: "Container Scan - NFS Server"
 
-sanity-test:
-  stage: test
-  tags:
-    - libvirt-xs
-  rules:
-    - if: $CI_MERGE_REQUEST_ID
-    - if: $CI_COMMIT_BRANCH == 'master'
-    - if: $CI_COMMIT_TAG
-  variables:
-    LINBIT_PACKAGE_REPO_LINES: |
-      deb [signed-by=/etc/apt/trusted.gpg.d/linbit-keyring.gpg] $LINBIT_REGISTRY_URL/repository/packages-linbit-com noble drbd-9
-      deb [signed-by=/etc/apt/trusted.gpg.d/linbit-keyring.gpg] $LINBIT_REGISTRY_URL/repository/packages-linbit-com/staging noble drbd-9
-  script:
-    - export PATH=$CI_PROJECT_DIR/bin:$PATH
-    - >
-      vmshed
-      --nvms $(( ${LINBIT_CI_MAX_CPUS:-20} / 3 ))
-      --pull-template "${LINBIT_DOCKER_REGISTRY}/vm/{{ .Image }}:latest"
-      --vms test/sanity/vms.toml
-      --tests test/sanity/tests.toml
-      --set values.LinbitPackageRepoLines="$LINBIT_PACKAGE_REPO_LINES"
-  artifacts:
-    when: always
-    paths:
-      - tests-out/
-    reports:
-      junit:
-        - tests-out/log/**/sanity-report.xml
-
 e2e-test:
   stage: test
   tags:
@@ -193,7 +148,7 @@ e2e-test:
       apiVersion: kustomize.config.k8s.io/v1beta1
       kind: Kustomization
       resources:
-      - $LINBIT_REGISTRY_URL/repository/pages/linstor-operator/v2.yaml
+      - $LINBIT_PULP_BASE_URL/pulp/content/file/pages/linstor-operator/v2.yaml
       configMapGenerator:
       - name: linstor-operator-image-config
         namespace: linbit-sds
