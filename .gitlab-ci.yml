@@ -187,6 +187,7 @@ e2e-test:
       --set values.TestImage=$LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/tests:$K8S_TEST_VERSION
       --set values.DeploymentVersion=v2
       --set values.DeploymentV2Source=/virter/workspace/
+      --set values.Focus=linstor-csi
   artifacts:
     when: always
     paths:
