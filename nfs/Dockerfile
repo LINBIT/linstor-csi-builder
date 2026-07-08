@@ -1,43 +1,6 @@
 ARG REPO_SOURCE=centos:9
 FROM $REPO_SOURCE AS repo-source
 
-FROM registry.access.redhat.com/ubi9/ubi AS build
-
-RUN --mount=type=bind,from=repo-source,source=/run/secrets,target=/run/secrets dnf install --setopt=install_weak_deps=false -y '@Development Tools' '@RPM Development Tools' createrepo
-
-FROM build AS build-libntirpc
-
-RUN --mount=type=bind,from=repo-source,source=/run/secrets,target=/run/secrets \
-    mkdir /rpms && \
-    git clone -b c9s-sig-storage-nfs-ganesha-7 https://gitlab.com/CentOS/storage/rpms/libntirpc.git && \
-    cd libntirpc && \
-    spectool -g libntirpc.spec && \
-    rpmbuild -bs --define "_sourcedir $PWD" --define "_srcrpmdir $PWD" libntirpc.spec && \
-    dnf builddep --setopt=install_weak_deps=false --enablerepo=codeready-builder-for-rhel-9-$(uname -m)-rpms -y libntirpc*.src.rpm && \
-    rpmbuild -ba --define "_sourcedir $PWD" --define "_srcrpmdir $PWD" --define '_rpmdir /rpms'  libntirpc.spec
-
-RUN createrepo /rpms
-
-FROM build AS build-nfs-ganesha
-
-RUN --mount=type=bind,from=repo-source,source=/run/secrets,target=/run/secrets \
-    --mount=type=bind,from=build-libntirpc,source=/rpms,target=/pkgs/build-libntirpc \
-    mkdir /rpms && \
-    dnf install --setopt=install_weak_deps=false -y libacl-devel && \
-    git clone -b c9s-sig-storage-nfs-ganesha-7 https://gitlab.com/CentOS/storage/rpms/nfs-ganesha.git && \
-    cd nfs-ganesha && \
-    spectool -g nfs-ganesha.spec && \
-    rpmbuild -bs --define "_sourcedir $PWD" --define "_srcrpmdir $PWD" nfs-ganesha.spec --without rados_recov --without rados_urls --without ceph --without rgw --without gluster --without gpfs --without saunafs --without xfs --without nullfs --without mem --without monitoring_support && \
-    dnf builddep \
-      --setopt=install_weak_deps=false \
-      --enablerepo=codeready-builder-for-rhel-9-$(uname -m)-rpms \
-      --repofrompath=libntirpc,/pkgs/build-libntirpc \
-      --setopt=libntirpc.gpgcheck=0 \
-      -y nfs-ganesha*.src.rpm && \
-    rpmbuild -ba --define "_sourcedir $PWD" --define "_srcrpmdir $PWD" --define '_rpmdir /rpms' nfs-ganesha.spec --without rados_recov --without rados_urls --without ceph --without rgw --without gluster --without gpfs --without saunafs --without xfs --without nullfs --without mem --without monitoring_support --define 'use_fsal_rgw OFF'
-
-RUN createrepo /rpms
-
 FROM --platform=$BUILDPLATFORM golang:1 AS gobuilder
 
 WORKDIR /src
@@ -60,15 +23,13 @@ RUN --mount=type=cache,target=/root/.cache/go-build GOOS=$TARGETOS GOARCH=$TARGE
 
 FROM registry.access.redhat.com/ubi9/ubi-init
 
+# nfs-ganesha + libntirpc from the CentOS Storage SIG.
 RUN --mount=type=bind,from=repo-source,source=/run/secrets,target=/run/secrets \
-    --mount=type=bind,from=build-libntirpc,source=/rpms,target=/pkgs/build-libntirpc \
-    --mount=type=bind,from=build-nfs-ganesha,source=/rpms,target=/pkgs/build-nfs-ganesha \
     dnf install -y \
       --setopt=install_weak_deps=false \
-      --repofrompath=libntirpc,/pkgs/build-libntirpc \
-      --repofrompath=nfs-ganesha,/pkgs/build-nfs-ganesha \
-      --setopt=libntirpc.gpgcheck=0 \
-      --setopt=nfs-ganesha.gpgcheck=0 \
+      --repofrompath="centos-sig-nfsganesha,https://mirror.stream.centos.org/SIGs/9-stream/storage/$(uname -m)/nfsganesha-9/" \
+      --setopt=centos-sig-nfsganesha.gpgcheck=1 \
+      --setopt=centos-sig-nfsganesha.gpgkey=https://www.centos.org/keys/RPM-GPG-KEY-CentOS-SIG-Storage \
       nfs-ganesha nfs-ganesha-vfs && \
     dnf clean all -y
 
