@@ -7,9 +7,9 @@ stages:
 variables:
   VIRTER_VERSION: v1.1.0
   VMSHED_VERSION: v0.28.0
-  K8S_TEST_VERSION: v2.10.2
+  K8S_TEST_VERSION: v2.10.5
   KUSTOMIZE_VERSION: v5.8.1
-  E2E_BASE_IMAGE: alma-10
+  E2E_BASE_IMAGE: alma-9
 
 prepare:
   image: ${LINBIT_DOCKER_REGISTRY}/build-helpers:latest
@@ -31,7 +31,7 @@ prepare:
     - ci_prepare_tools
     - ci_fetch_binary virter virter-$VIRTER_VERSION https://github.com/LINBIT/virter/releases/download/$VIRTER_VERSION/virter-linux-amd64
     - ci_fetch_binary vmshed vmshed-$VMSHED_VERSION https://github.com/LINBIT/vmshed/releases/download/$VMSHED_VERSION/vmshed-linux-amd64
-    - ci_fetch_binary create-k8s-test-configs create-k8s-test-configs-$K8S_TEST_VERSION $LINBIT_REGISTRY_URL/repository/tools/create-k8s-test-configs:$K8S_TEST_VERSION
+    - ci_fetch_binary create-k8s-test-configs create-k8s-test-configs-$K8S_TEST_VERSION ${LINBIT_PULP_BASE_URL}/pulp/content/file/tools/create-k8s-test-configs:$K8S_TEST_VERSION
     - ci_fetch_tar kustomize-$KUSTOMIZE_VERSION https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz -z
   artifacts:
     paths:
