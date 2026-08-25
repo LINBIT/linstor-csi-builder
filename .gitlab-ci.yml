@@ -4,12 +4,10 @@ stages:
   - test
   - publish
 
-variables:
-  VIRTER_VERSION: v1.1.0
-  VMSHED_VERSION: v0.28.0
-  K8S_TEST_VERSION: v2.10.5
-  KUSTOMIZE_VERSION: v5.8.1
-  E2E_BASE_IMAGE: alma-9
+include:
+  - project: kubernetes/linstor-kubernetes-tests
+    ref: v2.11.2
+    file: k8s-test.gitlab-ci.yml
 
 prepare:
   image: ${LINBIT_DOCKER_REGISTRY}/build-helpers:latest
@@ -27,18 +25,28 @@ prepare:
     - SEMVER="$(semver-from-git.py)"
     - echo "SEMVER=${SEMVER}" >> .ci-build.env
     - echo "TAG=v${SEMVER/+/-}" >> .ci-build.env
-    - . /usr/local/bin/gitlab-utils.sh
-    - ci_prepare_tools
-    - ci_fetch_binary virter virter-$VIRTER_VERSION https://github.com/LINBIT/virter/releases/download/$VIRTER_VERSION/virter-linux-amd64
-    - ci_fetch_binary vmshed vmshed-$VMSHED_VERSION https://github.com/LINBIT/vmshed/releases/download/$VMSHED_VERSION/vmshed-linux-amd64
-    - ci_fetch_binary create-k8s-test-configs create-k8s-test-configs-$K8S_TEST_VERSION ${LINBIT_PULP_BASE_URL}/pulp/content/file/tools/create-k8s-test-configs:$K8S_TEST_VERSION
-    - ci_fetch_tar kustomize-$KUSTOMIZE_VERSION https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz -z
   artifacts:
-    paths:
-      - bin
-      - download
     reports:
       dotenv: .ci-build.env
+
+prepare-k8s-test-bins:
+  extends: .k8s-test-prepare
+  stage: prepare
+  rules:
+    - if: $CI_MERGE_REQUEST_ID
+    - if: $CI_COMMIT_BRANCH == 'master'
+    - if: $CI_COMMIT_TAG
+
+create-k8s-test-configs:
+  extends: .k8s-test-configs
+  stage: prepare
+  rules:
+    - if: $CI_MERGE_REQUEST_ID
+    - if: $CI_COMMIT_BRANCH == 'master'
+    - if: $CI_COMMIT_TAG
+  variables:
+    K8S_TEST_RELEASES_TO_CHECK: "1"
+    K8S_TEST_INCLUDE_NEXT: "false"
 
 build:
   stage: build
@@ -124,9 +132,8 @@ container_scanning:nfs-server:
     expose_as: "Container Scan - NFS Server"
 
 e2e-test:
+  extends: .k8s-test
   stage: test
-  tags:
-    - libvirt
   rules:
     - if: $CI_MERGE_REQUEST_ID
       when: manual
@@ -138,12 +145,14 @@ e2e-test:
       when: manual
       allow_failure: true
   timeout: 8h
-  script:
-    - export PATH=$CI_PROJECT_DIR/bin:$PATH
-    - create-k8s-test-configs -stable-releases-to-check=1 -include-next=0 -base-image=$E2E_BASE_IMAGE
-    - cd virter
+  needs:
+    - prepare
+    - build
+    - prepare-k8s-test-bins
+    - create-k8s-test-configs
+  before_script:
     - |
-      cat <<EOF > kustomization.yml
+      cat <<EOF > virter/kustomization.yml
       ---
       apiVersion: kustomize.config.k8s.io/v1beta1
       kind: Kustomization
@@ -159,7 +168,7 @@ e2e-test:
         - 1_csi-image-config.yaml
       EOF
     - |
-      cat <<EOF > 1_csi-image-config.yaml
+      cat <<EOF > virter/1_csi-image-config.yaml
       ---
       base: ${LINBIT_DOCKER_REGISTRY}
       components:
@@ -170,32 +179,9 @@ e2e-test:
           image: nfs-server
           tag: ${TAG}
       EOF
-    - >
-      vmshed
-      --nvms $(( ${LINBIT_CI_MAX_CPUS:-20} / 3 ))
-      --pull-template "${LINBIT_DOCKER_REGISTRY}/vm/{{ .Image }}:latest"
-      --torun k8s-e2e-storage
-      --variant ipv4
-      --set values.DockerRegistryMirror=https://${DOCKER_REGISTRY_MIRROR}
-      --set values.DrbdRegistryMirror=https://${DRBD_REGISTRY_MIRROR}
-      --set values.K8sGcrIoMirror=https://${K8S_REGISTRY_MIRROR}
-      --set values.RegistryK8sIoMirror=https://${REGISTRY_K8S_IO_MIRROR}
-      --set values.DrbdIoUser=$PUBLISH_REGISTRY_USER
-      --set values.DrbdIoPassword=$PUBLISH_REGISTRY_PASSWORD
-      --set values.JustKubeadmImage=${LINBIT_DOCKER_REGISTRY}/linstor-kubernetes-tests/just-kubeadm:$K8S_TEST_VERSION
-      --set values.HelmImage=$LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/helm:$K8S_TEST_VERSION
-      --set values.TestImage=$LINBIT_DOCKER_REGISTRY/linstor-kubernetes-tests/tests:$K8S_TEST_VERSION
-      --set values.DeploymentVersion=v2
-      --set values.DeploymentV2Source=/virter/workspace/
-      --set values.Focus=linstor-csi
-  artifacts:
-    when: always
-    paths:
-      - virter/tests-out/
-    reports:
-      junit:
-        - virter/tests-out/test-results/*.xml
-        - virter/tests-out/log/**/*-report.xml
+  variables:
+    K8S_TEST_TORUN: k8s-e2e-storage
+    K8S_TEST_VARIANT: ipv4
 
 publish:
   stage: publish
