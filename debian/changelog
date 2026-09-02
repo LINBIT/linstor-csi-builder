@@ -1,3 +1,9 @@
+linstor-csi (1.13.0-1) experimental; urgency=medium
+
+  * Upstream release v1.13.0
+
+ -- Moritz Tanner <moritz.tanner@linbit.com>  Wed, 02 Sep 2026 12:05:29 +0200
+
 linstor-csi (1.12.0-1) experimental; urgency=medium
 
   * Upstream release v1.12.0
