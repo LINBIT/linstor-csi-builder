@@ -6,7 +6,7 @@ stages:
 
 include:
   - project: kubernetes/linstor-kubernetes-tests
-    ref: v2.11.2
+    ref: v2.12.0
     file: k8s-test.gitlab-ci.yml
 
 prepare:
@@ -37,6 +37,10 @@ prepare-k8s-test-bins:
     - if: $CI_COMMIT_BRANCH == 'master'
     - if: $CI_COMMIT_TAG
 
+# A single stable platform: latest stable Kubernetes with containerd and
+# flannel. The tests cover the CSI driver and LINSTOR rather than the Kubernetes
+# APIs, and the fixed platform lets the runs reuse the cached provisioned VM
+# images.
 create-k8s-test-configs:
   extends: .k8s-test-configs
   stage: prepare
@@ -47,6 +51,8 @@ create-k8s-test-configs:
   variables:
     K8S_TEST_RELEASES_TO_CHECK: "1"
     K8S_TEST_INCLUDE_NEXT: "false"
+    K8S_TEST_RANDOMIZE_CNI: "false"
+    K8S_TEST_RANDOMIZE_CRI: "false"
 
 build:
   stage: build
@@ -131,6 +137,16 @@ container_scanning:nfs-server:
   artifacts:
     expose_as: "Container Scan - NFS Server"
 
+# The upstream e2e suites. Start the job from its job page rather than with the
+# play button to pick the suites to run:
+#   k8s-e2e-storage  the storage e2e suite on the ipv4 variant
+#   kubevirt         the KubeVirt e2e suite, with live migration exercising
+#                    DRBD dual-primary through RWX block volumes
+#   shared           the storage e2e and KubeVirt suites on a storage pool on a
+#                    disk shared between all VMs, locked by LINSTOR and by
+#                    lvmlockd, without DRBD
+# The chosen suites share one vmshed run on one runner, so a combined run takes
+# longer than separate ones.
 e2e-test:
   extends: .k8s-test
   stage: test
@@ -144,7 +160,15 @@ e2e-test:
     - if: $CI_COMMIT_TAG
       when: manual
       allow_failure: true
-  timeout: 8h
+  # Room for all three suites in one run: the kubevirt and shared suites alone
+  # get 7h and 8h in the tests' own pipeline.
+  timeout: 16h
+  inputs:
+    suites:
+      type: array
+      default: [k8s-e2e-storage]
+      options: [k8s-e2e-storage, kubevirt, shared]
+      description: The e2e suites to run
   needs:
     - prepare
     - build
@@ -157,7 +181,7 @@ e2e-test:
       apiVersion: kustomize.config.k8s.io/v1beta1
       kind: Kustomization
       resources:
-      - $LINBIT_PULP_BASE_URL/pulp/content/file/pages/linstor-operator/v2.yaml
+      - ${K8S_TEST_OPERATOR_MANIFEST}
       configMapGenerator:
       - name: linstor-operator-image-config
         namespace: linbit-sds
@@ -179,9 +203,35 @@ e2e-test:
           image: nfs-server
           tag: ${TAG}
       EOF
+    # Job inputs cannot set variables, so build the vmshed selection here. The
+    # array input arrives as a JSON list of the validated suite names.
+    - |
+      SUITES='${{ job.inputs.suites }}'
+      VARIANTS=""
+      TORUN=""
+      for suite in $(echo "$SUITES" | tr -d '[]"' | tr ',' ' '); do
+        case "$suite" in
+          k8s-e2e-storage)
+            VARIANTS="$VARIANTS,ipv4"
+            TORUN="$TORUN,k8s-e2e-storage"
+            ;;
+          kubevirt)
+            VARIANTS="$VARIANTS,kubevirt"
+            TORUN="$TORUN,kubevirt"
+            ;;
+          shared)
+            VARIANTS="$VARIANTS,shared"
+            TORUN="$TORUN,k8s-e2e-shared-storage,kubevirt-shared,k8s-e2e-shared-storage-lvmlockd,kubevirt-shared-lvmlockd"
+            ;;
+        esac
+      done
+      [ -n "$TORUN" ] || { echo "no known suite in $SUITES"; exit 1; }
+      export K8S_TEST_VARIANT="${VARIANTS#,}"
+      export K8S_TEST_TORUN="${TORUN#,}"
   variables:
-    K8S_TEST_TORUN: k8s-e2e-storage
-    K8S_TEST_VARIANT: ipv4
+    # Have virter-gc free 100 GiB (in bytes) for the larger nested VMs of the
+    # kubevirt tests.
+    VIRTER_GC_MIN_FREE: "107374182400"
 
 publish:
   stage: publish
