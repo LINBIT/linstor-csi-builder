@@ -27,6 +27,7 @@ help:
 
 prepare-release:
 	sed -i "s/Version: .*/Version: $(SEMVER)/" linstor-csi.spec
+	sed -i "/newName: drbd.io\/linstor-csi/{n;s/newTag: .*/newTag: v$(SEMVER)/}" examples/standalone/kustomization.yaml
 	DEBFULLNAME='$(shell git config user.name)' DEBEMAIL='$(shell git config user.email)' dch --newversion $(SEMVER)-1 --distribution experimental "Upstream release $(shell git -C linstor-csi describe --match 'v*')"
 	rpmdev-bumpspec --new=$(SEMVER) -c "Upstream release $(shell git -C linstor-csi describe --match 'v*')" linstor-csi.spec
 

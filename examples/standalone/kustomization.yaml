@@ -1,0 +1,60 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: linbit-sds
+resources:
+- ../../linstor-csi/examples/k8s/deploy
+- settings.yaml
+images:
+- name: quay.io/piraeusdatastore/piraeus-csi
+  newName: drbd.io/linstor-csi
+  newTag: v1.13.1
+secretGenerator:
+- name: drbdio-pull-secret
+  type: kubernetes.io/dockerconfigjson
+  files:
+  - .dockerconfigjson=drbdio-pull-secret.json
+  options:
+    disableNameSuffixHash: true
+replacements:
+- source:
+    kind: ConfigMap
+    name: linstor-csi-settings
+    fieldPath: data.LINSTOR_CONTROLLER_URL
+  targets:
+  - select:
+      kind: Deployment
+      name: linstor-csi-controller
+    fieldPaths:
+    - spec.template.spec.initContainers.[name=linstor-wait-api-online].env.[name=LS_CONTROLLERS].value
+    - spec.template.spec.containers.[name=linstor-csi].env.[name=LS_CONTROLLERS].value
+  - select:
+      kind: DaemonSet
+      name: linstor-csi-node
+    fieldPaths:
+    - spec.template.spec.initContainers.[name=linstor-wait-node-online].env.[name=LS_CONTROLLERS].value
+    - spec.template.spec.containers.[name=linstor-csi].env.[name=LS_CONTROLLERS].value
+patches:
+- target:
+    kind: ServiceAccount
+  patch: |
+    - op: add
+      path: /imagePullSecrets
+      value:
+      - name: drbdio-pull-secret
+# RWX volumes require the separately deployed NFS server, which is not part of this example.
+- target:
+    kind: Deployment
+    name: linstor-csi-controller
+  patch: |
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: linstor-csi-controller
+    spec:
+      template:
+        spec:
+          containers:
+          - name: linstor-csi
+            env:
+            - name: ENABLE_RWX
+              value: "false"
